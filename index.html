@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AviControle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F7F4;--surface:#FFFFFF;--ink:#1E2A2F;--muted:#5E6D73;--zinc:#9AA7AC;--line:#DDE2E0;
+  --corn:#C98A12;--corn-soft:#F6E7C4;--ok:#2F7A4A;--alert:#B3362B;
+  --sans:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151B1E;--surface:#1E262A;--ink:#E9EEEC;--muted:#9FAEB3;--zinc:#6C7B81;--line:#2E393E;
+  --corn:#F0B13A;--corn-soft:#3A3120;--ok:#5BB57A;--alert:#E0685C;}}
+:root[data-theme="dark"]{--bg:#151B1E;--surface:#1E262A;--ink:#E9EEEC;--muted:#9FAEB3;--zinc:#6C7B81;--line:#2E393E;--corn:#F0B13A;--corn-soft:#3A3120;--ok:#5BB57A;--alert:#E0685C;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:0 18px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 10px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.25rem;letter-spacing:-.01em}
+.farm{color:var(--muted);font-size:.9rem;text-align:right}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px}
+nav button{flex:1;white-space:nowrap;font:600 .92rem var(--sans);color:var(--muted);background:none;border:0;padding:12px 4px;border-bottom:3px solid transparent;cursor:pointer}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--corn)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--corn);outline-offset:2px}
+.demo-note{font-size:.85rem;color:var(--muted);background:var(--corn-soft);padding:8px 12px;border-radius:6px;margin-bottom:20px}
+.verdict{font-family:var(--cond);font-weight:600;font-size:clamp(1.9rem,6.5vw,2.8rem);line-height:1.08;margin:0 0 6px;letter-spacing:-.01em}
+.verdict .gap{color:var(--corn)}
+.sub{color:var(--muted);margin:0 0 18px}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 10px 6px;margin-bottom:22px}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:16px;font-size:.85rem;color:var(--muted);padding:4px 6px 8px}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.stat{padding:12px 0;border-top:2px solid var(--line)}
+.stat b{display:block;font:600 1.9rem/1.1 var(--cond)}
+.stat span{color:var(--muted);font-size:.9rem}
+.silo{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:22px;display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:start}
+.silo-svg{width:100%;max-width:150px;height:auto;display:block}
+.silo>*{min-width:0}
+.silo-top{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.silo-top h3{margin:0;font:600 1.5rem/1.1 var(--cond)}
+.pill{font-weight:600;font-size:.85rem;padding:5px 12px;border-radius:20px;color:#fff;white-space:nowrap}
+.pill.ok{background:var(--ok)}.pill.warn{background:var(--corn);color:#1E2A2F}.pill.alert{background:var(--alert)}
+.silo-figs{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.silo-figs div{border-top:2px solid var(--line);padding-top:8px}
+.silo-figs b{display:block;font:600 1.2rem/1.15 var(--cond)}
+.silo-figs span{color:var(--muted);font-size:.76rem;line-height:1.3;display:block}
+.silo-cons{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
+.silo-cons p{margin:0 0 6px;color:var(--muted);font-size:.85rem}
+.silo-foot{grid-column:1/-1;margin:0;color:var(--muted);font-size:.82rem}
+.section h3{margin:0 0 4px;font-size:1.1rem}
+.fin-hero{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:22px}
+.fin-hero .big{font:700 clamp(2.4rem,11vw,3.4rem)/1 var(--cond);margin:4px 0}
+.fin-hero .lbl{color:var(--muted);font-size:.95rem}
+.fin-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.fin-row div{border-top:2px solid var(--line);padding-top:8px}
+.fin-row b{display:block;font:600 1.15rem/1.2 var(--cond)}
+.fin-row span{color:var(--muted);font-size:.78rem;line-height:1.3;display:block}
+.cat{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;margin-bottom:12px;font-size:.95rem}
+.cat .bar{grid-column:1/-1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.cat .bar i{display:block;height:100%;background:var(--corn);border-radius:4px}
+.cat small{color:var(--muted)}
+.gasto{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.gasto b{font-weight:600}.gasto span{display:block;color:var(--muted);font-size:.82rem}
+.gasto .val{font-weight:600;white-space:nowrap}
+.del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;min-width:44px;min-height:44px;font-size:1.1rem;cursor:pointer}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 18px;box-sizing:border-box}
+.login-box{width:100%;max-width:380px;display:grid;gap:14px}
+.login-box h1{margin:6px 0 0;font:600 2rem/1.1 var(--cond)}
+.linkbtn{background:none;border:0;color:var(--ink);text-decoration:underline;font:500 1rem var(--sans);min-height:44px;cursor:pointer;justify-self:start;padding:0}
+.adminbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--corn-soft);padding:10px 12px;border-radius:8px;margin-bottom:16px;font-weight:600}
+.lics{display:grid;gap:8px;margin-bottom:14px}
+.licrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.licrow b{display:block}.licrow span{color:var(--muted);font-size:.82rem}
+.licrow input{font-size:.95rem;padding:8px;width:auto}
+.lic{padding:12px 14px;border-radius:8px;margin-bottom:20px;font-size:.95rem;line-height:1.45}
+.lic.warn{background:var(--corn-soft)}
+.lic.alert{background:var(--alert);color:#fff}
+.bloqueado form .btn[type=submit],.bloqueado #addGalpao{opacity:.45}
+.backup{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.head-right{display:flex;align-items:center;gap:10px;min-width:0}
+.gear{background:none;border:1px solid var(--line);border-radius:8px;min-width:44px;min-height:44px;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.gear[aria-pressed="true"]{border-color:var(--corn);background:var(--corn-soft)}
+fieldset{border:0;padding:0;margin:0;display:grid;gap:14px}
+legend{font:600 1.25rem var(--cond);padding:0;margin-bottom:4px}
+.cfg-actions{display:flex;gap:10px;flex-wrap:wrap}
+.gsel{font:600 .95rem var(--sans);padding:8px 10px;min-height:44px;width:auto;max-width:44vw;border:1px solid var(--zinc);border-radius:8px;background:var(--surface);color:var(--ink)}
+.galp{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:8px}
+.galp.on{border-color:var(--corn);box-shadow:inset 0 0 0 1px var(--corn)}
+.galp b{display:block}.galp span{color:var(--muted);font-size:.85rem}
+.galp-btns{display:flex;gap:6px}
+.sbtn{font:600 .9rem var(--sans);min-height:44px;padding:0 12px;border:1px solid var(--zinc);border-radius:8px;background:none;color:var(--ink);cursor:pointer}
+.sbtn.danger{color:var(--alert);border-color:var(--alert)}
+.sbtn.danger.confirm{background:var(--alert);color:#fff}
+#cfgEditing{margin:26px 0 12px;font:600 1.4rem var(--cond)}
+h2{font:600 1.5rem/1.2 var(--cond);margin:28px 0 10px}
+form{display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+label{display:grid;gap:4px;font-weight:600;font-size:.95rem}
+label small{font-weight:400;color:var(--muted)}
+input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(--zinc);border-radius:6px;background:var(--bg);color:var(--ink);width:100%}
+.btn{font:600 1.05rem var(--sans);padding:12px 16px;border:0;border-radius:8px;background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--zinc)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.tbl{overflow-x:auto;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.95rem}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted);font-size:.85rem}
+td.neg{color:var(--alert)} td.pos{color:var(--ok)}
+.report-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:16px}
+.report-head h2{margin:0}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 18px;margin-bottom:20px}
+.meta div span{display:block;color:var(--muted);font-size:.85rem}
+.meta div b{font-weight:600}
+.note{border-left:4px solid var(--ok);padding:4px 0 4px 14px;margin:0 0 14px}
+.note.warn{border-color:var(--alert)}
+.note ul{margin:4px 0 0;padding-left:18px}
+.foot{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+[hidden]{display:none!important}
+@media (max-width:520px){.farm{display:none}}
+@media (max-width:480px){.grid{grid-template-columns:1fr 1fr}.silo{grid-template-columns:120px minmax(0,1fr);gap:12px}.silo-figs{grid-template-columns:1fr;gap:10px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{header,nav,.demo-note,#tab-hoje,#tab-lancar,#tab-financeiro,#tab-config,.no-print{display:none!important}#tab-relatorio{display:block!important}body{background:#fff;color:#000}.wrap{max-width:none}}
+</style>
+</head>
+<body>
+<div class="login" id="loadingScreen"><p class="sub" id="loadingMsg">Carregando…</p></div>
+<div class="login" id="loginScreen" hidden>
+  <div class="login-box">
+    <div class="brand"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M3 11 L13 3 L23 11 Z" fill="var(--corn)"/><rect x="4" y="11" width="18" height="16" rx="1.5" fill="none" stroke="var(--ink)" stroke-width="2.2"/><line x1="4" y1="17" x2="22" y2="17" stroke="var(--ink)" stroke-width="1.4"/><line x1="4" y1="22" x2="22" y2="22" stroke="var(--ink)" stroke-width="1.4"/></svg>AviControle</div>
+    <h1>Entrar</h1>
+    <p class="sub" style="margin:0">Use o e-mail e a senha que você recebeu.</p>
+    <form id="loginForm">
+      <label>E-mail<input id="lEmail" type="email" autocomplete="username" required></label>
+      <label>Senha<input id="lSenha" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="loginBtn">Entrar</button>
+    </form>
+    <button class="linkbtn" type="button" id="esqueciBtn">Esqueci a senha</button>
+    <p class="sub" id="loginMsg" role="status" style="margin:0"></p>
+  </div>
+</div>
+<div class="wrap" id="app" hidden>
+  <header>
+    <div class="brand">
+      <svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M3 11 L13 3 L23 11 Z" fill="var(--corn)"/><rect x="4" y="11" width="18" height="16" rx="1.5" fill="none" stroke="var(--ink)" stroke-width="2.2"/><line x1="4" y1="17" x2="22" y2="17" stroke="var(--ink)" stroke-width="1.4"/><line x1="4" y1="22" x2="22" y2="22" stroke="var(--ink)" stroke-width="1.4"/></svg>
+      AviControle
+    </div>
+    <div class="head-right">
+      <div class="farm" id="farm"></div>
+      <select class="gsel" id="galpaoSel" aria-label="Escolher galpão"></select>
+      <button class="gear" id="cfgBtn" aria-label="Dados do lote" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+  </header>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="hoje">Hoje</button>
+    <button role="tab" aria-selected="false" data-tab="lancar">Lançar dia</button>
+    <button role="tab" aria-selected="false" data-tab="relatorio">Relatório</button>
+    <button role="tab" aria-selected="false" data-tab="financeiro">Financeiro</button>
+  </nav>
+  <div class="adminbar" id="adminBar" hidden><label for="clienteSel">Cliente</label><select class="gsel" id="clienteSel" style="max-width:70vw"></select></div>
+  <div id="licenca"></div>
+
+  <section id="tab-hoje">
+    <p class="verdict" id="verdict"></p>
+    <p class="sub" id="verdict-sub"></p>
+    <div class="chart">
+      <div class="legend"><span><i style="background:var(--corn)"></i>Peso real</span><span><i style="background:var(--zinc)"></i>Padrão da linhagem</span></div>
+      <svg id="weightChart" viewBox="0 0 600 280" role="img" aria-label="Peso real comparado ao padrão da linhagem"></svg>
+    </div>
+    <div class="silo" id="siloPanel"></div>
+    <div class="grid" id="stats"></div>
+    <h2>Mortalidade por dia</h2>
+    <div class="chart"><svg id="mortChart" viewBox="0 0 600 180" role="img" aria-label="Mortalidade diária"></svg></div>
+  </section>
+
+  <section id="tab-lancar" hidden>
+    <h2 id="lancarTitle" style="margin-top:0"></h2>
+    <form id="form">
+      <label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label>
+      <label>Leitura do silo (kg)<small>Quanto de ração tem no silo agora</small><input id="fSilo" type="number" inputmode="numeric" min="0" required></label>
+      <label>Carga de ração recebida (kg)<small>Deixe 0 se não chegou ração hoje</small><input id="fCarga" type="number" inputmode="numeric" min="0" value="0"></label>
+      <label>Peso médio (g)<small>Só nos dias de pesagem</small><input id="fPeso" type="number" inputmode="numeric" min="0"></label>
+      <button class="btn" type="submit">Salvar lançamento</button>
+    </form>
+  </section>
+
+  <section id="tab-financeiro" hidden>
+    <div class="fin-hero" id="finHero"></div>
+    <h2>Gastos por categoria</h2>
+    <div id="finCats"></div>
+    <h2>Lançar gasto</h2>
+    <form id="finForm">
+      <label>Categoria<select id="gCat" required></select></label>
+      <label>Descrição<small>Ex.: conta de luz de setembro, carga de lenha</small><input id="gDesc" type="text" required></label>
+      <div class="two">
+        <label>Valor (R$)<input id="gVal" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+        <label>Data<input id="gData" type="date" required></label>
+      </div>
+      <button class="btn" type="submit">Salvar gasto</button>
+    </form>
+    <h2>Gastos lançados</h2>
+    <div id="finList"></div>
+    <h2>Resultado dos lotes encerrados</h2>
+    <div id="histFin"></div>
+  </section>
+
+  <section id="tab-config" hidden>
+    <h2 style="margin-top:0">Galpões da granja</h2>
+    <p class="sub">Toque em Editar para mudar os dados de um galpão, ou adicione um novo.</p>
+    <div id="galpList"></div>
+    <button class="btn ghost" type="button" id="addGalpao">Adicionar galpão</button>
+    <h3 id="cfgEditing"></h3>
+    <form id="cfgForm">
+      <fieldset><legend>Granja</legend>
+        <label>Nome da granja<small>Vale para todos os galpões</small><input id="cGranja" type="text" required></label>
+      </fieldset>
+      <fieldset><legend>Galpão</legend>
+        <label>Nome do galpão<input id="cGalpao" type="text" required></label>
+      </fieldset>
+      <fieldset><legend>Lote</legend>
+        <label>Linhagem<select id="cLinhagem"></select></label>
+        <div class="two">
+          <label>Data de alojamento<input id="cAloj" type="date" required></label>
+          <label>Aves alojadas<input id="cAves" type="number" inputmode="numeric" min="1" required></label>
+        </div>
+        <label>Peso médio de chegada (g)<input id="cPeso0" type="number" inputmode="decimal" min="1" step="0.01" required></label>
+      </fieldset>
+      <fieldset><legend>Silo</legend>
+        <label>Capacidade do silo (kg)<input id="cCap" type="number" inputmode="numeric" min="1" required></label>
+        <div class="two">
+          <label>Ponto de pedido (kg)<small>Quando pedir ração</small><input id="cPed" type="number" inputmode="numeric" min="0" required></label>
+          <label>Margem (kg)<small>Folga para não derramar</small><input id="cMarg" type="number" inputmode="numeric" min="0" required></label>
+        </div>
+      </fieldset>
+      <div class="cfg-actions"><button class="btn" type="submit">Salvar dados do galpão</button><button class="btn ghost" type="button" id="cfgCancel">Cancelar</button></div>
+    </form>
+    <h2 id="encTitle">Encerrar lote</h2>
+    <p class="sub" id="encInfo"></p>
+    <button class="btn ghost" type="button" id="encOpen">Encerrar lote</button>
+    <form id="encForm" hidden>
+      <div class="two">
+        <label>Data do abate<input id="eData" type="date" required></label>
+        <label>Aves carregadas<input id="eAves" type="number" inputmode="numeric" min="1" required></label>
+      </div>
+      <div class="two">
+        <label>Peso médio no abate (kg)<input id="ePeso" type="number" inputmode="decimal" min="0.1" step="0.001" required></label>
+        <label>Sobra recolhida (kg)<small>Ração que a integradora recolheu do silo</small><input id="eSobra" type="number" inputmode="numeric" min="0" required></label>
+      </div>
+      <label>Valor recebido da integração (R$)<small>Valor líquido do lote, já com os descontos</small><input id="eValor" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+      <div class="cfg-actions"><button class="btn" type="submit" id="encSubmit">Encerrar lote</button><button class="btn ghost" type="button" id="encCancel">Cancelar</button></div>
+    </form>
+    <h2>Cópia de segurança</h2>
+    <p class="sub">Seus dados ficam salvos na nuvem automaticamente, em qualquer aparelho em que você entrar. Se quiser, guarde também uma cópia no celular.</p>
+    <div class="backup">
+      <button class="btn ghost" type="button" id="exportBtn" hidden>Salvar cópia dos dados</button>
+      <label class="btn ghost file-btn">Restaurar uma cópia<input type="file" id="importInput" accept=".json,application/json"></label>
+    </div>
+    <p class="sub" id="acessoInfo" style="margin-top:18px"></p>
+    <div id="adminPanel" hidden>
+      <h2>Acessos dos clientes</h2>
+      <p class="sub">Só você vê esta parte. Para renovar, mude a data e toque em Salvar.</p>
+      <div class="lics" id="licList"></div>
+      <h3>Novo acesso</h3>
+      <form id="licForm">
+        <label>Nome do cliente<input id="nNome" type="text" required></label>
+        <label>UID do usuário<small>Copie do Firebase, em Authentication, depois de criar o e-mail e a senha dele</small><input id="nUid" type="text" required autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <label>Acesso válido até<input id="nVenc" type="date" required></label>
+        <button class="btn" type="submit">Criar acesso</button>
+      </form>
+    </div>
+    <button class="btn ghost" type="button" id="logoutBtn" style="margin-top:22px">Sair da conta</button>
+  </section>
+
+  <section id="tab-relatorio" hidden>
+    <div class="report-head">
+      <div><h2>Relatório de desempenho</h2><div class="sub" id="repSub" style="margin:0"></div></div>
+      <button class="btn ghost no-print" id="printBtn">Imprimir ou salvar PDF</button>
+    </div>
+    <div class="meta" id="repMeta"></div>
+    <h3>Desempenho por idade</h3>
+    <div class="tbl"><table id="repTable"></table></div>
+    <h3>Projeção até o abate (42 dias)</h3>
+    <div class="tbl"><table id="projTable"></table></div>
+    <div id="repNotes"></div>
+    <h3>Conclusão</h3>
+    <p id="repConc"></p>
+    <h3>Lotes anteriores deste galpão</h3>
+    <div id="histTec"></div>
+    <p class="foot">AviControle, acompanhamento de lotes de frango de corte. Projeções baseadas no ritmo real do lote e na curva padrão da linhagem; servem de apoio e não substituem a avaliação técnica no galpão.</p>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+/* ===== CONFIGURAÇÃO: preencha uma vez (veja o guia) ===== */
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyDgFXMczmPtGOQrJAQ7PPyOoKetzfQG1Z8",
+  authDomain:"avicontrole-2b44b.firebaseapp.com",
+  projectId:"avicontrole-2b44b",
+  appId:"1:337835306567:web:a9e2ddc7137bf5a7490b62"
+};
+const ADMIN_EMAIL="tia061196hen@gmail.com";          // o seu e-mail de administrador
+const CONTATO="Tiago Henrique, WhatsApp (37) 99992-7078";   // aparece nos avisos de vencimento
+/* ======================================================== */
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,getDocs,setDoc,collection,serverTimestamp,Timestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const CLIENTE={nome:"",contato:CONTATO};
+let L={galpao:"Galpão 2",linhagem:"Ross 308",alojadas:30000,alojamento:new Date(2026,7,27)};
+const PADROES={
+  "Ross 308":{0:44,7:213,14:533,21:1012,28:1616,35:2296,42:2998},
+  "Cobb 500":{0:44,7:194,14:486,21:987,28:1598,35:2302,42:2992},
+  "Hubbard Efficiency Plus":{0:43,7:216,14:541,21:1035,28:1647,35:2330,42:3028}
+};
+let padrao=PADROES[L.linhagem];
+let S={
+  idade:28,
+  pesos:{0:44,7:205,14:512,21:975,28:1560},
+  racaoAt:{7:5100,14:15600,21:32800,28:57400},
+  racaoTotal:57400,
+  mort:[38,45,52,40,33,28,24,20,18,19,17,16,15,14,14,13,15,12,13,14,12,16,15,17,18,16,19,21],
+  consumos:[3280,3350,3420,3500,3580,3690,3780],
+  estoque:14200
+};
+const CATS=["Aquecimento (lenha e gás)","Energia elétrica","Mão de obra","Cama (maravalha)","Manutenção","Água","Outros"];
+S.gastos=[
+  {id:1,cat:"Cama (maravalha)",desc:"Maravalha para o alojamento",val:6000,data:"2026-08-22"},
+  {id:2,cat:"Aquecimento (lenha e gás)",desc:"Carga de lenha",val:4800,data:"2026-08-25"},
+  {id:3,cat:"Aquecimento (lenha e gás)",desc:"Carga de lenha",val:3600,data:"2026-09-06"},
+  {id:4,cat:"Aquecimento (lenha e gás)",desc:"Gás para campânulas",val:1800,data:"2026-08-26"},
+  {id:5,cat:"Energia elétrica",desc:"Conta de luz de agosto",val:3900,data:"2026-09-05"},
+  {id:6,cat:"Mão de obra",desc:"Funcionário, setembro",val:2750,data:"2026-09-05"},
+  {id:7,cat:"Mão de obra",desc:"Funcionário, agosto (proporcional)",val:2750,data:"2026-08-30"},
+  {id:8,cat:"Manutenção",desc:"Troca de bico de bebedouro",val:1250,data:"2026-09-12"}
+];
+let gastoId=100;
+let SILO={cap:25000,pedido:10000,margem:1000};
+const G={granja:"Granja Boa Vista"};
+const GALPOES=[{L,S,SILO,hist:[]}];let cur=0,cfgIdx=0;
+function useGalpao(i){cur=i;({L,S,SILO}=GALPOES[i]);padrao=PADROES[L.linhagem]}
+let FB=null,alvoUid=null,loaded=false,lastJs="",saveTimer=null,pend=null,saveChain=Promise.resolve(),souAdmin=false;
+const snapshot=()=>JSON.stringify({G,cur,gastoId,galpoes:GALPOES.map(g=>({L:{...g.L,alojamento:isoD(g.L.alojamento)},S:g.S,SILO:g.SILO,hist:g.hist||[]}))});
+function save(){
+  if(!loaded||!alvoUid)return;
+  const js=snapshot();if(js===lastJs)return;lastJs=js;
+  if(bloqueado)return;
+  pend={uid:alvoUid,js};clearTimeout(saveTimer);saveTimer=setTimeout(flush,700);
+}
+function flush(){
+  clearTimeout(saveTimer);if(!pend)return saveChain;
+  const p=pend;pend=null;
+  saveChain=saveChain.then(()=>setDoc(doc(FB.db,"clientes",p.uid),{json:p.js,salvoEm:serverTimestamp()})).catch(()=>toast("Não foi possível salvar. Confira a internet e tente de novo."));
+  return saveChain;
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
+const isoD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parseD=t=>{const [y,m,d]=t.split("-").map(Number);return new Date(y,m-1,d)};
+function restore(o){
+  if(!o||!Array.isArray(o.galpoes)||!o.galpoes.length)throw new Error("arquivo inválido");
+  G.granja=o.G?.granja||"";gastoId=o.gastoId||100;
+  GALPOES.length=0;
+  o.galpoes.forEach(g=>GALPOES.push({L:{...g.L,alojamento:parseD(g.L.alojamento)},S:g.S,SILO:g.SILO,hist:g.hist||[]}));
+  useGalpao(Math.min(o.cur||0,GALPOES.length-1));
+}
+function novoGalpao(){
+  let n=GALPOES.length+1;while(GALPOES.some(g=>g.L.galpao===`Galpão ${n}`))n++;
+  return {L:{galpao:`Galpão ${n}`,linhagem:"Ross 308",alojadas:30000,alojamento:(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})()},
+    S:{idade:0,pesos:{0:44},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[]},
+    SILO:{cap:25000,pedido:10000,margem:1000},hist:[]};
+}
+const $=id=>document.getElementById(id);
+const nf=(n,d=0)=>n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const dateAt=d=>{const x=new Date(L.alojamento);x.setDate(x.getDate()+d);return x.toLocaleDateString("pt-BR")};
+const padraoAt=d=>{const ks=Object.keys(padrao).map(Number);for(let i=0;i<ks.length-1;i++){if(d>=ks[i]&&d<=ks[i+1]){const t=(d-ks[i])/(ks[i+1]-ks[i]);return padrao[ks[i]]+t*(padrao[ks[i+1]]-padrao[ks[i]])}}return padrao[42]};
+const mortAte=d=>S.mort.slice(0,d).reduce((a,b)=>a+b,0);
+const vivas=d=>L.alojadas-mortAte(d);
+const pesoAges=()=>Object.keys(S.pesos).map(Number).sort((a,b)=>a-b);
+const ultimaPesagem=()=>{const a=pesoAges();return a[a.length-1]};
+const conv=d=>S.racaoAt[d]?S.racaoAt[d]/(vivas(d)*S.pesos[d]/1000):null;
+const viabAt=d=>vivas(d)/L.alojadas*100;
+const iep=d=>{const c=conv(d);return c?viabAt(d)*(S.pesos[d]/1000)/(d*c)*100:null};
+const gmd=d=>d?(S.pesos[d]-S.pesos[0])/d:0;
+const consumoMedio=()=>{const c=S.consumos.slice(-7);return c.length?c.reduce((a,b)=>a+b,0)/c.length:0};
+
+function projection(){
+  const d=ultimaPesagem(),p=S.pesos[d];
+  const peso42=p*padrao[42]/padraoAt(d);
+  const mortDia=S.mort.length?S.mort.slice(-7).reduce((a,b)=>a+b,0)/Math.min(7,S.mort.length):0;
+  const mort42=mortAte(S.idade)+mortDia*(42-S.idade);
+  const viv42=L.alojadas-mort42;
+  const c=conv(d)||1.3;const conv42=c*1.21;
+  return {peso42,mortDia,mort42,viv42,viab42:viv42/L.alojadas*100,conv42,racao42:viv42*peso42/1000*conv42};
+}
+
+function renderHoje(){
+  $("farm").textContent=G.granja;
+  const d=ultimaPesagem(),p=S.pesos[d],pd=padraoAt(d),diff=(p/pd-1)*100;
+  const txt=Math.abs(diff)<1.5?"no ritmo do padrão":(diff<0?`${nf(Math.abs(diff),1)}% abaixo do padrão`:`${nf(diff,1)}% acima do padrão`);
+  $("verdict").innerHTML=d?`Lote <span class="gap">${txt}</span> ${L.linhagem} aos ${d} dias`:`${L.galpao} alojado, aguardando a primeira pesagem`;
+  $("verdict-sub").textContent=`Peso médio de ${nf(p)} g contra ${nf(pd)} g esperados. Hoje o lote está com ${S.idade} dias (${dateAt(S.idade)}).`;
+  drawWeight();drawMort();drawSilo();
+  const c=conv(d);
+  $("stats").innerHTML=[
+    [nf(vivas(S.idade)),"aves vivas"],
+    [nf(vivas(S.idade)/L.alojadas*100,2)+"%","viabilidade"],
+    [c?nf(c,2):"–",`conversão aos ${d} dias`],
+    [iep(d)?nf(iep(d)):"–",`IEP aos ${d} dias`],
+    [d?nf(gmd(d),1)+" g":"–","ganho de peso por dia (média do lote)"],
+    [nf(consumoMedio()),"kg de ração por dia (média 7 dias)"]
+  ].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
+}
+
+function drawWeight(){
+  const W=600,H=280,pl=48,pr=14,pt=10,pb=30,maxD=42,maxP=3200;
+  const x=d=>pl+d/maxD*(W-pl-pr),y=v=>H-pb-v/maxP*(H-pt-pb);
+  let g="";
+  for(let v=0;v<=3000;v+=1000){g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="var(--muted)">${v?nf(v/1000)+" kg":"0"}</text>`}
+  for(let d=0;d<=42;d+=7)g+=`<text x="${x(d)}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--muted)">${d}d</text>`;
+  const pk=Object.keys(padrao).map(Number);
+  g+=`<polyline fill="none" stroke="var(--zinc)" stroke-width="2.5" stroke-dasharray="6 5" points="${pk.map(d=>x(d)+","+y(padrao[d])).join(" ")}"/>`;
+  const rk=pesoAges();
+  const pr42=projection().peso42,last=rk[rk.length-1];
+  g+=`<line x1="${x(last)}" y1="${y(S.pesos[last])}" x2="${x(42)}" y2="${y(pr42)}" stroke="var(--corn)" stroke-width="2" stroke-dasharray="2 5" opacity=".8"/>`;
+  g+=`<polyline fill="none" stroke="var(--corn)" stroke-width="3.5" stroke-linejoin="round" points="${rk.map(d=>x(d)+","+y(S.pesos[d])).join(" ")}"/>`;
+  g+=rk.map(d=>`<circle cx="${x(d)}" cy="${y(S.pesos[d])}" r="4.5" fill="var(--surface)" stroke="var(--corn)" stroke-width="2.5"/>`).join("");
+  g+=`<text x="${x(42)-4}" y="${y(pr42)+20}" text-anchor="end" font-size="12" fill="var(--muted)">projeção ${nf(pr42/1000,2)} kg</text>`;
+  $("weightChart").innerHTML=g;
+}
+
+function drawMort(){
+  if(!S.mort.length){$("mortChart").innerHTML=`<text x="300" y="95" text-anchor="middle" font-size="15" fill="var(--muted)">Nenhuma mortalidade lançada ainda</text>`;return}
+  const W=600,H=180,pl=34,pr=8,pt=10,pb=24,n=S.mort.length,max=Math.max(...S.mort)*1.15;
+  const bw=(W-pl-pr)/n;let g="";
+  [0,Math.round(max/2)].forEach(v=>{const yy=H-pb-v/max*(H-pt-pb);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`});
+  S.mort.forEach((m,i)=>{const h=m/max*(H-pt-pb);g+=`<rect x="${pl+i*bw+1}" y="${H-pb-h}" width="${Math.max(bw-2,1)}" height="${h}" rx="1.5" fill="${i>=n-7?"var(--corn)":"var(--zinc)"}"><title>Dia ${i+1}: ${m} aves</title></rect>`;if((i+1)%7===0)g+=`<text x="${pl+i*bw+bw/2}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${i+1}d</text>`});
+  $("mortChart").innerHTML=g;
+}
+
+function drawSilo(){
+  const lvl=Math.max(0,Math.min(1,S.estoque/SILO.cap)),ped=SILO.pedido/SILO.cap;
+  const yTop=44,yBot=192,H=yBot-yTop,fy=yBot-lvl*H,py=yBot-ped*H;
+  const cm=consumoMedio(),dias=cm?(S.estoque-SILO.pedido)/cm:(S.estoque<=SILO.pedido?-1:Infinity),duracao=cm?S.estoque/cm:Infinity;
+  const pedir=SILO.cap-SILO.margem-Math.min(S.estoque,SILO.pedido);
+  const st=dias<=0?["alert","Pedir hoje"]:dias<2?["warn","Pedir em breve"]:["ok","Estoque tranquilo"];
+  const quando=!isFinite(dias)?"Sem consumo lançado ainda":dias<=0?"Estoque no ponto de pedido":dias<1.5?"Pedir ração amanhã":`Pedir ração em ${Math.floor(dias)} dias`;
+  const shape="M20 44 L65 14 L110 44 L110 160 L65 192 L20 160 Z";
+  const svg=`<svg class="silo-svg" viewBox="0 0 130 222" role="img" aria-label="Silo com ${nf(lvl*100)}% da capacidade">
+    <defs><clipPath id="siloClip"><path d="${shape}"/></clipPath></defs>
+    <line x1="30" y1="170" x2="24" y2="216" stroke="var(--zinc)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="100" y1="170" x2="106" y2="216" stroke="var(--zinc)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="8" y1="217" x2="122" y2="217" stroke="var(--line)" stroke-width="2"/>
+    <path d="${shape}" fill="var(--bg)"/>
+    <rect x="0" y="${fy}" width="130" height="${yBot-fy}" fill="var(--corn)" opacity=".9" clip-path="url(#siloClip)"/>
+    <g stroke="var(--line)" stroke-width="1" clip-path="url(#siloClip)" opacity=".7">${[70,96,122,148].map(y=>`<line x1="20" x2="110" y1="${y}" y2="${y}"/>`).join("")}</g>
+    <path d="${shape}" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
+    <line x1="20" x2="110" y1="44" y2="44" stroke="var(--ink)" stroke-width="1.6"/>
+    <line x1="20" x2="110" y1="160" y2="160" stroke="var(--ink)" stroke-width="1.6"/>
+    <line x1="12" x2="118" y1="${py}" y2="${py}" stroke="var(--alert)" stroke-width="2" stroke-dasharray="5 3"/>
+    <text x="65" y="${py-5}" text-anchor="middle" font-size="9.5" font-weight="600" fill="var(--alert)" paint-order="stroke" stroke="var(--bg)" stroke-width="3">ponto de pedido</text>
+    <text x="65" y="112" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-size="26" font-weight="700" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${nf(lvl*100)}%</text>
+  </svg>`;
+  const c7=S.consumos.slice(-7),mx=Math.max(1,...c7),bw=100/Math.max(1,c7.length);
+  const tend=c7[c7.length-1]>c7[0]*1.03?"subindo":c7[c7.length-1]<c7[0]*0.97?"caindo":"estável";
+  const bars=`<svg viewBox="0 0 100 34" preserveAspectRatio="none" style="width:100%;height:44px;display:block" aria-hidden="true">${c7.map((v,i)=>{const h=v/mx*30;return `<rect x="${i*bw+1}" y="${34-h}" width="${bw-2}" height="${h}" rx="1" fill="${i===c7.length-1?"var(--corn)":"var(--zinc)"}"/>`}).join("")}</svg>`;
+  const fig=(b,s)=>`<div><b>${b}</b><span>${s}</span></div>`;
+  $("siloPanel").innerHTML=`
+    <div class="silo-top"><h3>${quando}</h3><span class="pill ${st[0]}">${st[1]}</span></div>
+    ${svg}
+    <div class="silo-figs">
+      ${fig(nf(S.estoque)+" kg",`no silo agora, de ${nf(SILO.cap)} kg`)}
+      ${isFinite(duracao)?fig(nf(duracao,1)+" dias",`de ração; acaba por volta de ${dateAt(S.idade+Math.ceil(duracao))}`):fig("–","dias de ração; lance o primeiro dia para calcular")}
+      ${fig(dias<=0?"Hoje":!isFinite(dias)?"–":dateAt(S.idade+Math.floor(dias)),`pedir até essa data, ao chegar em ${nf(SILO.pedido)} kg`)}
+      ${fig(nf(pedir)+" kg","pedido sugerido para encher o silo")}
+    </div>
+    <div class="silo-cons">${c7.length?`<p>Consumo dos últimos 7 dias: média de ${nf(cm)} kg por dia, ${tend}</p>${bars}`:"<p>O consumo aparece aqui depois do primeiro lançamento do dia.</p>"}</div>
+    <p class="silo-foot">Deixa ${nf(SILO.margem)} kg de folga para a carga não derramar.</p>`;
+}
+
+function renderRelatorio(){
+  const d=ultimaPesagem(),pr=projection();
+  $("repSub").textContent=`${G.granja}, ${L.galpao}. Emitido em ${dateAt(S.idade)}, ${S.idade} dias de lote.`;
+  $("repMeta").innerHTML=[["Linhagem",L.linhagem],["Alojamento",dateAt(0)],["Aves alojadas",nf(L.alojadas)],["Aves vivas",nf(vivas(S.idade))],["Mortalidade acumulada",nf(mortAte(S.idade))],["Ração consumida",nf(S.racaoTotal)+" kg"]].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join("");
+  const rows=pesoAges().filter(a=>a>0).map(a=>{const p=S.pesos[a],pd=padraoAt(a),df=(p/pd-1)*100,c=conv(a);
+    return `<tr><td>${a} dias</td><td>${nf(p)} g</td><td>${nf(pd)} g</td><td class="${df<-2?"neg":df>0?"pos":""}">${df>0?"+":""}${nf(df,1)}%</td><td>${nf(gmd(a),1)} g</td><td>${c?nf(c,2):"–"}</td><td>${nf(viabAt(a),2)}%</td><td>${iep(a)?nf(iep(a)):"–"}</td></tr>`}).join("");
+  $("repTable").innerHTML=`<thead><tr><th>Idade</th><th>Peso real</th><th>Padrão</th><th>Diferença</th><th>Ganho/dia</th><th>Conversão</th><th>Viabilidade</th><th>IEP</th></tr></thead><tbody>${rows}</tbody>`;
+  $("projTable").innerHTML=`<thead><tr><th>Indicador</th><th>Projeção</th><th>Referência</th></tr></thead><tbody>
+    <tr><td>Peso médio</td><td>${nf(pr.peso42/1000,2)} kg</td><td>${nf(padrao[42]/1000,2)} kg</td></tr>
+    <tr><td>Mortalidade acumulada</td><td>${nf(pr.mort42)} aves</td><td>média de ${nf(pr.mortDia,1)} por dia na última semana</td></tr>
+    <tr><td>Viabilidade</td><td>${nf(pr.viab42,2)}%</td><td>acima de 96%</td></tr>
+    <tr><td>Conversão alimentar</td><td>${nf(pr.conv42,2)}</td><td>até 1,60</td></tr>
+    <tr><td>IEP</td><td>${nf(pr.viab42*(pr.peso42/1000)/(42*pr.conv42)*100)}</td><td>acima de 400</td></tr>
+    <tr><td>Ração total do lote</td><td>${nf(Math.round(pr.racao42/100)*100)} kg</td><td>faltam ${nf(Math.max(0,Math.round((pr.racao42-S.racaoTotal)/100)*100))} kg</td></tr></tbody>`;
+  const diff=(S.pesos[d]/padraoAt(d)-1)*100,viab=vivas(S.idade)/L.alojadas*100,c=conv(d);
+  const pos=[],att=[];
+  viab>=97?pos.push(`Viabilidade de ${nf(viab,2)}%, com mortalidade estável depois da primeira semana.`):att.push(`Viabilidade de ${nf(viab,2)}%, abaixo do esperado para a idade.`);
+  const ie=iep(d);
+  if(ie)(ie>=400?pos:att).push(`IEP de ${nf(ie)} aos ${d} dias, ${ie>=400?"acima":"abaixo"} da referência de 400.`);
+  if(c&&c<1.35)pos.push(`Conversão de ${nf(c,2)} aos ${d} dias, boa eficiência no uso da ração.`);
+  diff<-2?att.push(`Peso ${nf(Math.abs(diff),1)}% abaixo do padrão aos ${d} dias. Conferir ambiência, altura de comedouros e bebedouros e o consumo de água.`):pos.push(`Peso dentro da curva da linhagem aos ${d} dias.`);
+  const m7=S.mort.slice(-7),m14=S.mort.slice(-14,-7);
+  if(m14.length&&m7.reduce((a,b)=>a+b,0)>m14.reduce((a,b)=>a+b,0)*1.2)att.push("Mortalidade da última semana subiu em relação à anterior. Acompanhar de perto e registrar a causa das perdas.");
+  if((S.estoque-SILO.pedido)/consumoMedio()<2)att.push("Estoque do silo perto do ponto de pedido. Confirmar a próxima carga com a fábrica.");
+  $("repNotes").innerHTML=`<div class="note"><h3>Pontos positivos</h3><ul>${pos.map(x=>`<li>${x}</li>`).join("")}</ul></div>`+(att.length?`<div class="note warn"><h3>Pontos de atenção</h3><ul>${att.map(x=>`<li>${x}</li>`).join("")}</ul></div>`:"");
+  $("repConc").textContent=`Lote com boa viabilidade e boa conversão, mas ainda ${diff<-2?"abaixo":"dentro"} da curva de peso. No ritmo atual, a projeção é de ${nf(pr.peso42/1000,2)} kg aos 42 dias${pr.peso42<padrao[42]*0.97?", abaixo do padrão; vale avaliar estender o abate em 1 a 2 dias se o ganho diário não reagir nesta semana":""}.`;
+}
+
+function renderLancar(){
+  $("lancarTitle").textContent=`Lançamento do dia ${S.idade+1} (${dateAt(S.idade+1)})`;
+  $("fSilo").placeholder=`última leitura: ${nf(S.estoque)}`;
+}
+const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const fmtData=d=>{const [y,m,dd]=d.split("-");return `${dd}/${m}/${y}`};
+function renderFinanceiro(){
+  const total=S.gastos.reduce((a,g)=>a+g.val,0),viv=vivas(S.idade);
+  const d=ultimaPesagem(),kg=viv*S.pesos[d]/1000;
+  $("finHero").innerHTML=`<div class="lbl">Custo por ave alojada</div><div class="big">${brl(total/L.alojadas)}</div>
+    <div class="lbl">${brl(total)} gastos no lote, para ${nf(L.alojadas)} aves alojadas</div>
+    <div class="fin-row">
+      <div><b>${brl(total/viv)}</b><span>por ave viva hoje</span></div>
+      <div><b>${S.idade?brl(total/S.idade):"–"}</b><span>de gasto médio por dia de lote</span></div>
+      <div><b>${brl(total/kg)}</b><span>por kg de frango vivo hoje</span></div>
+    </div>`;
+  const by={};S.gastos.forEach(g=>by[g.cat]=(by[g.cat]||0)+g.val);
+  const cats=Object.entries(by).sort((a,b)=>b[1]-a[1]),mx=cats.length?cats[0][1]:1;
+  $("finCats").innerHTML=cats.length?cats.map(([c,v])=>`<div class="cat"><span>${c}</span><span><b>${brl(v)}</b> <small>${nf(v/total*100)}%</small></span><div class="bar"><i style="width:${v/mx*100}%"></i></div><small style="grid-column:1/-1">${brl(v/L.alojadas)} por ave alojada</small></div>`).join(""):`<p class="sub">Nenhum gasto lançado ainda. Use o formulário abaixo para lançar o primeiro.</p>`;
+  const list=[...S.gastos].sort((a,b)=>b.data.localeCompare(a.data));
+  save();
+  $("finList").innerHTML=list.length?list.map(g=>`<div class="gasto"><div><b>${g.desc}</b><span>${g.cat}, ${fmtData(g.data)}</span></div><div class="val">${brl(g.val)}</div><button class="del" data-id="${g.id}" aria-label="Excluir gasto ${g.desc}">×</button></div>`).join(""):`<p class="sub">Os gastos lançados aparecem aqui.</p>`;
+}
+function renderHist(){
+  const h=GALPOES[cur].hist||[];
+  if(!h.length){const e=`<p class="sub">Nenhum lote encerrado neste galpão ainda.</p>`;$("histTec").innerHTML=e;$("histFin").innerHTML=e;return}
+  const rs=[...h].reverse();
+  $("histTec").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Abate</th><th>Idade</th><th>Peso</th><th>Conversão</th><th>Viabilidade</th><th>IEP</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote}</td><td>${fmtData(r.abate)}</td><td>${r.idade} d</td><td>${nf(r.peso,3)} kg</td><td>${r.conv?nf(r.conv,2):"–"}</td><td>${nf(r.viab,2)}%</td><td>${r.iep?nf(r.iep):"–"}</td></tr>`).join("")}</tbody></table></div>`;
+  $("histFin").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Recebido</th><th>Gastos</th><th>Lucro</th><th>Lucro por ave</th><th>Custo por ave</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote} (${fmtData(r.abate)})</td><td>${brl(r.valor)}</td><td>${brl(r.gastos)}</td><td class="${r.lucro<0?"neg":"pos"}">${brl(r.lucro)}</td><td class="${r.lucro<0?"neg":""}">${brl(r.lucro/r.alojadas)}</td><td>${brl(r.gastos/r.alojadas)}</td></tr>`).join("")}</tbody></table></div><p class="sub" style="font-size:.85rem">Lucro = valor recebido da integração menos os gastos lançados no lote. Valores por ave consideram as aves alojadas.</p>`;
+}
+function renderGalpaoSel(){
+  $("galpaoSel").innerHTML=GALPOES.map((g,i)=>`<option value="${i}"${i===cur?" selected":""}>${g.L.galpao}</option>`).join("");
+}
+function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLancar();renderFinanceiro();renderHist();save()}
+
+function showTab(tab){
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===tab));
+  ["hoje","lancar","relatorio","financeiro","config"].forEach(t=>$("tab-"+t).hidden=t!==tab);
+  $("cfgBtn").setAttribute("aria-pressed",tab==="config");
+  window.scrollTo({top:0});
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+$("cLinhagem").innerHTML=Object.keys(PADROES).map(k=>`<option>${k}</option>`).join("");
+function renderGalpList(){
+  $("galpList").innerHTML=GALPOES.map((g,i)=>`<div class="galp${i===cfgIdx?" on":""}"><div><b>${g.L.galpao}</b><span>${g.L.linhagem}, ${nf(g.L.alojadas)} aves, ${g.S.idade} dias</span></div>
+    <div class="galp-btns"><button type="button" class="sbtn" data-edit="${i}">Editar</button>${GALPOES.length>1?`<button type="button" class="sbtn danger" data-del="${i}" aria-label="Excluir ${g.L.galpao}">Excluir</button>`:""}</div></div>`).join("");
+}
+function fillCfg(i){
+  cfgIdx=i;const g=GALPOES[i];
+  $("cfgEditing").textContent=`Editando: ${g.L.galpao}`;
+  $("cGranja").value=G.granja;$("cGalpao").value=g.L.galpao;$("cLinhagem").value=g.L.linhagem;
+  $("cAloj").value=isoDate(g.L.alojamento);$("cAves").value=g.L.alojadas;$("cPeso0").value=g.S.pesos[0];
+  $("cCap").value=g.SILO.cap;$("cPed").value=g.SILO.pedido;$("cMarg").value=g.SILO.margem;
+  renderGalpList();resetEnc();
+}
+$("cfgBtn").addEventListener("click",()=>{if($("cfgBtn").getAttribute("aria-pressed")==="true"){showTab("hoje");return}fillCfg(cur);showTab("config")});
+$("galpaoSel").addEventListener("change",e=>{useGalpao(+e.target.value);renderAll();if(!$("tab-config").hidden)fillCfg(cur)});
+$("addGalpao").addEventListener("click",()=>{
+  if(bloqueado){toast(msgBloq());return}
+  GALPOES.push(novoGalpao());fillCfg(GALPOES.length-1);renderGalpaoSel();save();
+  $("cfgEditing").scrollIntoView({behavior:"smooth",block:"start"});
+  toast(`${GALPOES[cfgIdx].L.galpao} criado. Preencha os dados e salve.`);
+});
+$("galpList").addEventListener("click",e=>{
+  const ed=e.target.closest("[data-edit]"),dl=e.target.closest("[data-del]");
+  if(ed){fillCfg(+ed.dataset.edit);$("cfgEditing").scrollIntoView({behavior:"smooth",block:"start"});return}
+  if(dl){
+    if(bloqueado){toast(msgBloq());return}
+    if(!dl.classList.contains("confirm")){dl.classList.add("confirm");dl.textContent="Confirmar";setTimeout(()=>{if(dl.isConnected){dl.classList.remove("confirm");dl.textContent="Excluir"}},4000);return}
+    const i=+dl.dataset.del,nome=GALPOES[i].L.galpao;GALPOES.splice(i,1);
+    useGalpao(Math.min(cur>i?cur-1:cur,GALPOES.length-1));fillCfg(cur);renderAll();toast(`${nome} excluído`);
+  }
+});
+$("cfgCancel").addEventListener("click",()=>showTab("hoje"));
+$("cfgForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(bloqueado){toast(msgBloq());return}
+  const cap=+$("cCap").value,ped=+$("cPed").value,marg=+$("cMarg").value,aves=+$("cAves").value;
+  if(ped+marg>=cap){toast("O ponto de pedido mais a margem precisa ser menor que a capacidade do silo.");return}
+  const g=GALPOES[cfgIdx];
+  if(aves<=g.S.mort.reduce((a,b)=>a+b,0)){toast("As aves alojadas precisam ser mais que a mortalidade já lançada.");return}
+  const [y,m,d]=$("cAloj").value.split("-").map(Number);
+  G.granja=$("cGranja").value.trim();
+  Object.assign(g.L,{galpao:$("cGalpao").value.trim(),linhagem:$("cLinhagem").value,alojamento:new Date(y,m-1,d),alojadas:aves});
+  g.S.pesos[0]=+$("cPeso0").value;Object.assign(g.SILO,{cap,pedido:ped,margem:marg});
+  useGalpao(cfgIdx);renderAll();showTab("hoje");toast(`${g.L.galpao} salvo`);
+});
+let encConfirm=false;
+function resetEnc(){
+  const g=GALPOES[cfgIdx];if(!g)return;
+  encConfirm=false;$("encForm").hidden=true;$("encOpen").hidden=false;$("encSubmit").textContent="Encerrar lote";
+  $("encTitle").textContent=`Encerrar lote de ${g.L.galpao}`;
+  $("encInfo").textContent=`Lote ${(g.hist||[]).length+1}, alojado em ${g.L.alojamento.toLocaleDateString("pt-BR")}, com ${g.S.idade} dias lançados. Ao encerrar, os resultados ficam guardados e o galpão começa o próximo lote com o silo zerado.`;
+}
+$("encOpen").addEventListener("click",()=>{
+  if(typeof bloqueado!=="undefined"&&bloqueado){toast(msgBloq());return}
+  const g=GALPOES[cfgIdx];
+  $("eData").value=isoDate(new Date());$("eAves").value=g.L.alojadas-g.S.mort.reduce((a,b)=>a+b,0);
+  $("ePeso").value="";$("eSobra").value=g.S.estoque;$("eValor").value="";
+  $("encForm").hidden=false;$("encOpen").hidden=true;$("ePeso").focus();
+});
+$("encCancel").addEventListener("click",resetEnc);
+$("encForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(typeof bloqueado!=="undefined"&&bloqueado){toast(msgBloq());return}
+  const g=GALPOES[cfgIdx];
+  const [y,m,d]=$("eData").value.split("-").map(Number),ab=new Date(y,m-1,d);
+  const idade=Math.round((ab-g.L.alojamento)/86400000);
+  const aves=+$("eAves").value,peso=+$("ePeso").value,sobra=+$("eSobra").value,valor=+$("eValor").value;
+  if(idade<1){toast("A data do abate precisa ser depois do alojamento.");return}
+  if(aves>g.L.alojadas){toast("As aves carregadas não podem passar das aves alojadas.");return}
+  if(!encConfirm){encConfirm=true;$("encSubmit").textContent="Toque de novo para confirmar";return}
+  const racao=g.S.racaoTotal+Math.max(0,g.S.estoque-sobra),kg=aves*peso;
+  const conv=racao>0?racao/kg:null,viab=aves/g.L.alojadas*100,iepF=conv?viab*peso/(idade*conv)*100:null;
+  const gastos=g.S.gastos.reduce((a,x)=>a+x.val,0),lucro=valor-gastos;
+  g.hist=g.hist||[];
+  const n=g.hist.length+1;
+  g.hist.push({lote:n,linhagem:g.L.linhagem,alojamento:isoDate(g.L.alojamento),abate:isoDate(ab),alojadas:g.L.alojadas,aves,idade,peso,racao,conv,viab,iep:iepF,gastos,valor,lucro});
+  g.S={idade:0,pesos:{0:g.S.pesos[0]},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[]};
+  g.L.alojamento=(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})();
+  useGalpao(cur);fillCfg(cfgIdx);renderAll();
+  $("cfgEditing").scrollIntoView({behavior:"smooth",block:"start"});
+  toast(`Lote ${n} encerrado com lucro de ${brl(lucro)}. Agora preencha os dados do novo lote.`);
+});
+$("form").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(bloqueado){toast(msgBloq());return}
+  const m=+$("fMort").value,leitura=+$("fSilo").value,carga=+$("fCarga").value||0,peso=+$("fPeso").value;
+  const consumo=S.estoque+carga-leitura;
+  if(consumo<0){toast("A leitura do silo ficou maior que o estoque mais a carga. Confira os números.");return}
+  S.idade++;S.mort.push(m);S.consumos.push(consumo);S.racaoTotal+=consumo;S.estoque=leitura;
+  if(peso>0){S.pesos[S.idade]=peso;S.racaoAt[S.idade]=S.racaoTotal}
+  e.target.reset();$("fCarga").value=0;renderAll();
+  toast(`Dia ${S.idade} salvo. Consumo calculado: ${nf(consumo)} kg`);
+});
+$("gCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+$("gData").value="2026-09-24";
+$("finForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(bloqueado){toast(msgBloq());return}
+  const val=parseFloat($("gVal").value);
+  if(!(val>0)){toast("Informe um valor maior que zero.");return}
+  S.gastos.push({id:++gastoId,cat:$("gCat").value,desc:$("gDesc").value.trim(),val,data:$("gData").value});
+  $("gDesc").value="";$("gVal").value="";renderFinanceiro();
+  toast(`Gasto de ${brl(val)} salvo`);
+});
+$("finList").addEventListener("click",e=>{
+  const b=e.target.closest(".del");if(!b)return;
+  if(bloqueado){toast(msgBloq());return}
+  S.gastos=S.gastos.filter(g=>g.id!==+b.dataset.id);renderFinanceiro();toast("Gasto excluído");
+});
+$("printBtn").addEventListener("click",()=>{try{window.print()}catch(_){toast("Use o menu do navegador para imprimir.")}});
+let bloqueado=false;
+const msgBloq=()=>`Acesso vencido. Para renovar, fale com ${CLIENTE.contato}.`;
+let tt;function toast(t){const el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>el.classList.remove("show"),3200)}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function aplicaLicenca(lic){
+  $("licenca").innerHTML="";document.body.classList.remove("bloqueado");bloqueado=false;
+  if(souAdmin){$("acessoInfo").textContent="Você está como administrador.";return}
+  if(!lic||!lic.vencimento){
+    bloqueado=true;document.body.classList.add("bloqueado");
+    $("licenca").innerHTML=`<div class="lic alert">Sua conta ainda não tem um acesso ativo. Fale com ${esc(CONTATO)}.</div>`;
+    $("acessoInfo").textContent="Conta sem acesso ativo.";return;
+  }
+  CLIENTE.nome=lic.nome||"";
+  const venc=lic.vencimento.toDate?lic.vencimento.toDate():new Date(lic.vencimento);
+  const v0=new Date(venc.getFullYear(),venc.getMonth(),venc.getDate()),h=new Date();h.setHours(0,0,0,0);
+  const rest=Math.round((v0-h)/86400000),vs=v0.toLocaleDateString("pt-BR");
+  bloqueado=venc<=new Date();
+  if(bloqueado){$("licenca").innerHTML=`<div class="lic alert">O acesso venceu em ${vs}. Você ainda pode consultar os dados, mas novos lançamentos estão bloqueados. Para renovar, fale com ${esc(CONTATO)}.</div>`;document.body.classList.add("bloqueado")}
+  else if(rest<=5)$("licenca").innerHTML=`<div class="lic warn">Seu acesso vence ${rest===0?"hoje":rest===1?"amanhã":`em ${rest} dias`} (${vs}). Para renovar, fale com ${esc(CONTATO)}.</div>`;
+  $("acessoInfo").textContent=`Acesso${CLIENTE.nome?` de ${CLIENTE.nome}`:""} válido até ${vs}.`;
+}
+function tela(q){$("loadingScreen").hidden=q!=="loading";$("loginScreen").hidden=q!=="login";$("app").hidden=q!=="app"}
+async function carregar(uid){
+  tela("loading");$("loadingMsg").textContent="Carregando seus dados…";
+  loaded=false;alvoUid=uid;
+  let saved=null;
+  try{const sn=await getDoc(doc(FB.db,"clientes",uid));if(sn.exists())saved=JSON.parse(sn.data().json)}
+  catch(_){
+    $("loadingMsg").innerHTML='Não foi possível carregar os dados. Confira a internet.<br><button class="btn" type="button" id="retryBtn" style="margin-top:14px">Tentar de novo</button>';
+    $("retryBtn").addEventListener("click",()=>carregar(uid));return;
+  }
+  if(saved){try{restore(saved)}catch(_){saved=null}}
+  if(!saved){GALPOES.length=0;G.granja="";GALPOES.push(novoGalpao());useGalpao(0)}
+  lastJs=snapshot();loaded=true;renderAll();tela("app");
+  if(saved)showTab("hoje");else{fillCfg(0);showTab("config");setTimeout(()=>toast("Comece preenchendo os dados da granja e do galpão."),300)}
+}
+async function carregarLicencas(){
+  const snap=await getDocs(collection(FB.db,"licencas"));
+  const ls=[];snap.forEach(d=>ls.push({uid:d.id,...d.data()}));
+  ls.sort((a,b)=>(a.nome||"").localeCompare(b.nome||""));
+  const eu=FB.auth.currentUser.uid;
+  $("clienteSel").innerHTML=[`<option value="${eu}">Meus galpões</option>`,...ls.filter(l=>l.uid!==eu).map(l=>`<option value="${esc(l.uid)}">${esc(l.nome||l.uid)}</option>`)].join("");
+  $("clienteSel").value=alvoUid||eu;
+  $("licList").innerHTML=ls.length?ls.map(l=>{const v=l.vencimento?.toDate?l.vencimento.toDate():null;return `<div class="licrow"><div><b>${esc(l.nome||"Sem nome")}</b><span>${v&&v>new Date()?"ativo":"vencido"}</span></div><input type="date" aria-label="Vencimento de ${esc(l.nome||"")}" value="${v?isoD(v):""}" data-lic="${esc(l.uid)}"><button class="sbtn" type="button" data-licsave="${esc(l.uid)}">Salvar</button></div>`}).join(""):'<p class="sub">Nenhum acesso criado ainda.</p>';
+}
+async function gravaLicenca(uid,dados){
+  const [y,m,d]=dados.venc.split("-").map(Number);
+  const body={vencimento:Timestamp.fromDate(new Date(y,m-1,d,23,59,59))};if(dados.nome)body.nome=dados.nome;
+  await setDoc(doc(FB.db,"licencas",uid),body,{merge:true});
+}
+async function iniciar(user){
+  souAdmin=!!user.email&&user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase();
+  let lic=null;
+  try{const ls=await getDoc(doc(FB.db,"licencas",user.uid));if(ls.exists())lic=ls.data()}catch(_){}
+  aplicaLicenca(lic);
+  $("adminBar").hidden=!souAdmin;$("adminPanel").hidden=!souAdmin;
+  alvoUid=user.uid;
+  if(souAdmin){try{await carregarLicencas()}catch(_){toast("Não foi possível carregar a lista de clientes.")}}
+  await carregar(user.uid);
+}
+$("clienteSel").addEventListener("change",async e=>{await flush();await carregar(e.target.value);$("clienteSel").value=alvoUid});
+$("licList").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-licsave]");if(!b)return;
+  const uid=b.dataset.licsave,inp=$("licList").querySelector(`input[data-lic="${CSS.escape(uid)}"]`);
+  if(!inp.value){toast("Escolha a data de vencimento.");return}
+  try{await gravaLicenca(uid,{venc:inp.value});toast("Acesso atualizado");await carregarLicencas()}catch(_){toast("Não foi possível salvar o acesso.")}
+});
+$("licForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const uid=$("nUid").value.trim();
+  try{await gravaLicenca(uid,{nome:$("nNome").value.trim(),venc:$("nVenc").value});e.target.reset();toast("Acesso criado");await carregarLicencas()}catch(_){toast("Não foi possível criar o acesso. Confira o UID.")}
+});
+$("logoutBtn").addEventListener("click",async()=>{await flush();loaded=false;alvoUid=null;await signOut(FB.auth)});
+$("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();$("loginMsg").textContent="";$("loginBtn").disabled=true;
+  try{await signInWithEmailAndPassword(FB.auth,$("lEmail").value.trim(),$("lSenha").value)}
+  catch(err){
+    const c=err&&err.code||"";
+    $("loginMsg").textContent=c.includes("too-many-requests")?"Muitas tentativas. Aguarde alguns minutos e tente de novo.":c.includes("network")?"Sem internet. Confira a conexão e tente de novo.":"E-mail ou senha incorretos.";
+  }finally{$("loginBtn").disabled=false}
+});
+$("esqueciBtn").addEventListener("click",async()=>{
+  const em=$("lEmail").value.trim();
+  if(!em){$("loginMsg").textContent="Digite o seu e-mail acima e toque de novo em Esqueci a senha.";return}
+  try{await sendPasswordResetEmail(FB.auth,em);$("loginMsg").textContent="Se esse e-mail tiver conta, enviamos um link para criar uma nova senha."}
+  catch(_){$("loginMsg").textContent="Não foi possível enviar agora. Confira o e-mail e a internet."}
+});
+$("importInput").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;
+  if(bloqueado){toast(msgBloq());e.target.value="";return}
+  const r=new FileReader();
+  r.onload=()=>{try{restore(JSON.parse(r.result));renderAll();fillCfg(cur);toast("Cópia restaurada")}catch(_){toast("Esse arquivo não é uma cópia do AviControle.")}e.target.value=""};
+  r.readAsText(f);
+});
+$("exportBtn").hidden=false;
+$("exportBtn").addEventListener("click",()=>{
+  const nome=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([snapshot()],{type:"application/json"}));
+  a.download=`avicontrole-${nome}-${isoD(new Date())}.json`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);toast("Cópia salva");
+});
+try{
+  if(FIREBASE_CONFIG.apiKey==="COLE_AQUI")throw new Error("config");
+  const fbApp=initializeApp(FIREBASE_CONFIG);
+  FB={auth:getAuth(fbApp),db:getFirestore(fbApp)};
+  onAuthStateChanged(FB.auth,u=>{if(u){iniciar(u)}else{tela("login")}});
+}catch(_){
+  $("loadingMsg").textContent="O app ainda não foi configurado. Preencha os dados do Firebase no início do arquivo.";
+}
+</script>
+</body>
+</html>
