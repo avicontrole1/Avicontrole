@@ -73,6 +73,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--corn);outline-o
 .gasto .val{font-weight:600;white-space:nowrap}
 .del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;min-width:44px;min-height:44px;font-size:1.1rem;cursor:pointer}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dia{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.dia b{display:block}.dia span{color:var(--muted);font-size:.85rem;line-height:1.35;display:block}
+.dia.on{background:var(--corn-soft);border-radius:8px;padding:12px 10px}
+.editbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--corn-soft);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:600}
 .login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 18px;box-sizing:border-box}
 .login-box{width:100%;max-width:380px;display:grid;gap:14px}
 .login-box h1{margin:6px 0 0;font:600 2rem/1.1 var(--cond)}
@@ -187,13 +191,18 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
 
   <section id="tab-lancar" hidden>
     <h2 id="lancarTitle" style="margin-top:0"></h2>
+    <div class="editbar" id="editBar" hidden><span id="editTxt"></span><button class="sbtn" type="button" id="editCancel">Cancelar edição</button></div>
     <form id="form">
       <label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label>
       <label>Leitura do silo (kg)<small>Quanto de ração tem no silo agora</small><input id="fSilo" type="number" inputmode="numeric" min="0" required></label>
       <label>Carga de ração recebida (kg)<small>Deixe 0 se não chegou ração hoje</small><input id="fCarga" type="number" inputmode="numeric" min="0" value="0"></label>
       <label>Peso médio (g)<small>Só nos dias de pesagem</small><input id="fPeso" type="number" inputmode="numeric" min="0"></label>
-      <button class="btn" type="submit">Salvar lançamento</button>
+      <button class="btn" type="submit" id="formBtn">Salvar lançamento</button>
     </form>
+    <h2>Lançamentos anteriores</h2>
+    <p class="sub" style="margin-top:-4px">Toque em Editar para corrigir um dia. O consumo de ração e os indicadores são recalculados.</p>
+    <div id="histDias"></div>
+    <button class="btn ghost" type="button" id="verTodos" hidden>Ver todos os dias</button>
   </section>
 
   <section id="tab-financeiro" hidden>
@@ -367,17 +376,39 @@ function flush(){
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
 const isoD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const parseD=t=>{const [y,m,d]=t.split("-").map(Number);return new Date(y,m-1,d)};
+function migraS(S){
+  if(Array.isArray(S.dias))return S;
+  const cons=S.consumos||[],mort=S.mort||[],n=Math.max(mort.length,S.idade||0);
+  S.dias=[];
+  for(let i=0;i<n;i++){const dia=i+1;S.dias.push({mort:mort[i]||0,leitura:null,carga:0,consumo:cons[i]!=null?cons[i]:0,peso:S.pesos&&S.pesos[dia]?S.pesos[dia]:null})}
+  S.estoqueInicial=(S.estoque||0)+S.dias.reduce((a,d)=>a+d.consumo,0);
+  recalcula(S);return S;
+}
+function recalcula(S,teste){
+  let est=S.estoqueInicial||0,tot=0;const mort=[],cons=[],pesos={0:S.pesos[0]},racaoAt={};
+  for(let i=0;i<S.dias.length;i++){
+    const d=S.dias[i],dia=i+1;
+    const c=d.leitura==null?(d.consumo||0):est+(d.carga||0)-d.leitura;
+    if(c<0)return {erro:dia};
+    est=d.leitura==null?est+(d.carga||0)-c:d.leitura;
+    tot+=c;mort.push(d.mort||0);cons.push(c);
+    if(d.peso>0){pesos[dia]=d.peso;racaoAt[dia]=tot}
+  }
+  if(teste)return {ok:true};
+  Object.assign(S,{mort,consumos:cons,racaoTotal:tot,estoque:est,pesos,racaoAt,idade:S.dias.length});
+  return {ok:true};
+}
 function restore(o){
   if(!o||!Array.isArray(o.galpoes)||!o.galpoes.length)throw new Error("arquivo inválido");
   G.granja=o.G?.granja||"";gastoId=o.gastoId||100;
   GALPOES.length=0;
-  o.galpoes.forEach(g=>GALPOES.push({L:{...g.L,alojamento:parseD(g.L.alojamento)},S:g.S,SILO:g.SILO,hist:g.hist||[]}));
+  o.galpoes.forEach(g=>GALPOES.push({L:{...g.L,alojamento:parseD(g.L.alojamento)},S:migraS(g.S),SILO:g.SILO,hist:g.hist||[]}));
   useGalpao(Math.min(o.cur||0,GALPOES.length-1));
 }
 function novoGalpao(){
   let n=GALPOES.length+1;while(GALPOES.some(g=>g.L.galpao===`Galpão ${n}`))n++;
   return {L:{galpao:`Galpão ${n}`,linhagem:"Ross 308",alojadas:30000,alojamento:(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})()},
-    S:{idade:0,pesos:{0:44},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[]},
+    S:{idade:0,pesos:{0:44},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[],dias:[],estoqueInicial:0},
     SILO:{cap:25000,pedido:10000,margem:1000},hist:[]};
 }
 const $=id=>document.getElementById(id);
@@ -516,9 +547,26 @@ function renderRelatorio(){
   $("repConc").textContent=`Lote com boa viabilidade e boa conversão, mas ainda ${diff<-2?"abaixo":"dentro"} da curva de peso. No ritmo atual, a projeção é de ${nf(pr.peso42/1000,2)} kg aos 42 dias${pr.peso42<padrao[42]*0.97?", abaixo do padrão; vale avaliar estender o abate em 1 a 2 dias se o ganho diário não reagir nesta semana":""}.`;
 }
 
+let editDia=null,verTodosDias=false;
 function renderLancar(){
-  $("lancarTitle").textContent=`Lançamento do dia ${S.idade+1} (${dateAt(S.idade+1)})`;
-  $("fSilo").placeholder=`última leitura: ${nf(S.estoque)}`;
+  if(!Array.isArray(S.dias))migraS(S);
+  if(editDia!=null&&editDia>=S.dias.length)editDia=null;
+  const ed=editDia!=null;
+  $("editBar").hidden=!ed;$("formBtn").textContent=ed?"Salvar alteração":"Salvar lançamento";
+  $("fSilo").required=!ed||S.dias[editDia].leitura!=null;
+  if(ed){
+    const d=S.dias[editDia];
+    $("lancarTitle").textContent=`Editando o dia ${editDia+1} (${dateAt(editDia+1)})`;
+    $("editTxt").textContent=d.leitura==null?"Este dia não tem leitura do silo registrada. Se deixar em branco, o consumo dele fica como está.":"Corrija o que precisar e salve.";
+  }else{
+    $("lancarTitle").textContent=`Lançamento do dia ${S.idade+1} (${dateAt(S.idade+1)})`;
+    $("fSilo").placeholder=`última leitura: ${nf(S.estoque)}`;
+  }
+  const n=S.dias.length,idx=[...Array(n).keys()].reverse(),mostrar=verTodosDias?idx:idx.slice(0,7);
+  $("histDias").innerHTML=n?mostrar.map(i=>{const d=S.dias[i],c=S.consumos[i];
+    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.leitura!=null?`silo ${nf(d.leitura)} kg`:"sem leitura do silo",d.carga?`carga ${nf(d.carga)} kg`:null,`consumo ${nf(c||0)} kg`,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
+    return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span></div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
+  $("verTodos").hidden=verTodosDias||n<=7;
 }
 const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const fmtData=d=>{const [y,m,dd]=d.split("-");return `${dd}/${m}/${y}`};
@@ -573,7 +621,7 @@ function fillCfg(i){
   renderGalpList();resetEnc();
 }
 $("cfgBtn").addEventListener("click",()=>{if($("cfgBtn").getAttribute("aria-pressed")==="true"){showTab("hoje");return}fillCfg(cur);showTab("config")});
-$("galpaoSel").addEventListener("change",e=>{useGalpao(+e.target.value);renderAll();if(!$("tab-config").hidden)fillCfg(cur)});
+$("galpaoSel").addEventListener("change",e=>{editDia=null;useGalpao(+e.target.value);renderAll();if(!$("tab-config").hidden)fillCfg(cur)});
 $("addGalpao").addEventListener("click",()=>{
   if(bloqueado){toast(msgBloq());return}
   GALPOES.push(novoGalpao());fillCfg(GALPOES.length-1);renderGalpaoSel();save();
@@ -635,7 +683,7 @@ $("encForm").addEventListener("submit",e=>{
   g.hist=g.hist||[];
   const n=g.hist.length+1;
   g.hist.push({lote:n,linhagem:g.L.linhagem,alojamento:isoDate(g.L.alojamento),abate:isoDate(ab),alojadas:g.L.alojadas,aves,idade,peso,racao,conv,viab,iep:iepF,gastos,valor,lucro});
-  g.S={idade:0,pesos:{0:g.S.pesos[0]},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[]};
+  g.S={idade:0,pesos:{0:g.S.pesos[0]},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[],dias:[],estoqueInicial:0};
   g.L.alojamento=(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})();
   useGalpao(cur);fillCfg(cfgIdx);renderAll();
   $("cfgEditing").scrollIntoView({behavior:"smooth",block:"start"});
@@ -644,14 +692,40 @@ $("encForm").addEventListener("submit",e=>{
 $("form").addEventListener("submit",e=>{
   e.preventDefault();
   if(bloqueado){toast(msgBloq());return}
-  const m=+$("fMort").value,leitura=+$("fSilo").value,carga=+$("fCarga").value||0,peso=+$("fPeso").value;
+  if(!Array.isArray(S.dias))migraS(S);
+  const m=+$("fMort").value,ls=$("fSilo").value.trim(),carga=+$("fCarga").value||0,peso=+$("fPeso").value||null;
+  if(editDia!=null){
+    const i=editDia,old=S.dias[i];
+    const novo={...old,mort:m,carga,peso,leitura:ls===""&&old.leitura==null?null:+ls};
+    S.dias[i]=novo;
+    const r=recalcula(S,true);
+    if(r.erro){S.dias[i]=old;toast(`Com essa correção, a leitura do silo do dia ${r.erro} ficou maior que o estoque mais a carga. Confira os números.`);return}
+    recalcula(S);editDia=null;e.target.reset();$("fCarga").value=0;renderAll();
+    toast(`Dia ${i+1} corrigido. Indicadores recalculados.`);return;
+  }
+  const leitura=+ls;
   const consumo=S.estoque+carga-leitura;
   if(consumo<0){toast("A leitura do silo ficou maior que o estoque mais a carga. Confira os números.");return}
-  S.idade++;S.mort.push(m);S.consumos.push(consumo);S.racaoTotal+=consumo;S.estoque=leitura;
-  if(peso>0){S.pesos[S.idade]=peso;S.racaoAt[S.idade]=S.racaoTotal}
+  S.dias.push({mort:m,leitura,carga,peso});recalcula(S);
   e.target.reset();$("fCarga").value=0;renderAll();
   toast(`Dia ${S.idade} salvo. Consumo calculado: ${nf(consumo)} kg`);
 });
+$("histDias").addEventListener("click",e=>{
+  const eb=e.target.closest("[data-editdia]"),db=e.target.closest("[data-deldia]");
+  if(eb){
+    if(bloqueado){toast(msgBloq());return}
+    const i=+eb.dataset.editdia,d=S.dias[i];editDia=i;
+    $("fMort").value=d.mort;$("fSilo").value=d.leitura!=null?d.leitura:"";$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";
+    renderLancar();$("lancarTitle").scrollIntoView({behavior:"smooth",block:"start"});$("fMort").focus({preventScroll:true});return;
+  }
+  if(db){
+    if(bloqueado){toast(msgBloq());return}
+    if(!db.classList.contains("confirm")){db.classList.add("confirm");db.textContent="Confirmar";setTimeout(()=>{if(db.isConnected){db.classList.remove("confirm");db.textContent="Excluir"}},4000);return}
+    const i=+db.dataset.deldia;S.dias.splice(i,1);if(editDia===i)editDia=null;recalcula(S);$("form").reset();$("fCarga").value=0;renderAll();toast(`Dia ${i+1} excluído`);
+  }
+});
+$("editCancel").addEventListener("click",()=>{editDia=null;$("form").reset();$("fCarga").value=0;renderLancar()});
+$("verTodos").addEventListener("click",()=>{verTodosDias=true;renderLancar()});
 $("gCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
 $("gData").value="2026-09-24";
 $("finForm").addEventListener("submit",e=>{
@@ -702,7 +776,7 @@ async function carregar(uid){
   }
   if(saved){try{restore(saved)}catch(_){saved=null}}
   if(!saved){GALPOES.length=0;G.granja="";GALPOES.push(novoGalpao());useGalpao(0)}
-  lastJs=snapshot();loaded=true;renderAll();tela("app");
+  editDia=null;lastJs=snapshot();loaded=true;renderAll();tela("app");
   if(saved)showTab("hoje");else{fillCfg(0);showTab("config");setTimeout(()=>toast("Comece preenchendo os dados da granja e do galpão."),300)}
 }
 async function carregarLicencas(){
