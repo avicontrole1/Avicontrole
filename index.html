@@ -134,6 +134,32 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .tbl{overflow-x:auto;margin-bottom:18px}
+.aval{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
+.aval-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.aval-top h2{margin:0}
+.aval-item{display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+.aval-item .dot{width:12px;height:12px;border-radius:50%;margin-top:5px}
+.dot.ok{background:var(--ok)}.dot.atencao{background:var(--corn)}.dot.alerta{background:var(--alert)}
+.aval-item b{display:block;line-height:1.3}
+.aval-item p{margin:3px 0 0;color:var(--muted);font-size:.92rem;line-height:1.45}
+.aval-item details{margin-top:4px}
+.aval-item summary{cursor:pointer;font-weight:600;font-size:.9rem;min-height:36px;display:flex;align-items:center;color:var(--ink)}
+.aval-item summary::-webkit-details-marker{display:none}
+.aval-item summary::before{content:"▸";display:inline-block;margin-right:8px;color:var(--corn);transition:transform .15s}
+.aval-item details[open] summary::before{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.aval-item summary::before{transition:none}}
+.aval-item ul{margin:2px 0 4px;padding-left:18px;font-size:.92rem;line-height:1.5}
+.aval-ok{margin:0;padding:10px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
+.aval-nota{margin:10px 0 0;color:var(--muted);font-size:.78rem}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0 20px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.kpi span{display:block;color:var(--muted);font-size:.8rem}
+.kpi b{display:block;font:600 1.5rem/1.15 var(--cond);margin-top:2px}
+.kpi small{display:block;font-size:.78rem;margin-top:2px;color:var(--muted)}
+.kpi small.pos{color:var(--ok)}.kpi small.neg{color:var(--alert)}
+.lista-dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;margin:0 0 18px;font-size:.95rem}
+.lista-dl dt{color:var(--muted)}.lista-dl dd{margin:0;font-weight:600;text-align:right}
+.vbtn{font:600 .85rem var(--sans);min-height:36px;padding:0 10px;border:1px solid var(--zinc);border-radius:8px;background:none;color:var(--ink);cursor:pointer}
 table{border-collapse:collapse;width:100%;min-width:520px;font-size:.95rem}
 th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
@@ -194,6 +220,7 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
   <section id="tab-hoje">
     <p class="verdict" id="verdict"></p>
     <p class="sub" id="verdict-sub"></p>
+    <div class="aval" id="avaliacao"></div>
     <div class="chart">
       <div class="legend"><span><i style="background:var(--corn)"></i>Peso real</span><span><i style="background:var(--zinc)"></i>Padrão da linhagem</span></div>
       <svg id="weightChart" viewBox="0 0 600 280" role="img" aria-label="Peso real comparado ao padrão da linhagem"></svg>
@@ -212,15 +239,19 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
     </div>
     <div class="silo" id="siloPanel"></div>
     <div class="grid" id="stats"></div>
-    <h2>Mortalidade por dia</h2>
-    <div class="chart"><svg id="mortChart" viewBox="0 0 600 180" role="img" aria-label="Mortalidade diária"></svg></div>
+    <h2>Mortalidade e eliminação por dia</h2>
+    <p class="sub" id="mortResumo"></p>
+    <div class="chart">
+      <div class="legend"><span><i style="background:var(--corn)"></i>Mortalidade</span><span><i style="background:var(--alert)"></i>Eliminação</span></div>
+      <svg id="mortChart" viewBox="0 0 600 190" role="img" aria-label="Mortalidade e eliminação por dia"></svg>
+    </div>
   </section>
 
   <section id="tab-lancar" hidden>
     <h2 id="lancarTitle" style="margin-top:0"></h2>
     <div class="editbar" id="editBar" hidden><span id="editTxt"></span><button class="sbtn" type="button" id="editCancel">Cancelar edição</button></div>
     <form id="form">
-      <label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label>
+      <div class="two"><label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label><label>Aves eliminadas hoje<input id="fElim" type="number" inputmode="numeric" min="0" value="0"></label></div>
       <label>Leitura do silo (kg)<small>Quanto de ração tem no silo agora</small><input id="fSilo" type="number" inputmode="numeric" min="0" required></label>
       <label>Carga de ração recebida (kg)<small>Deixe 0 se não chegou ração hoje</small><input id="fCarga" type="number" inputmode="numeric" min="0" value="0"></label>
       <label>Leitura do hidrômetro (m³)<small>Com duas casas decimais, ex.: 5006,44. Deixe em branco se não leu hoje.</small><input id="fAgua" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9.,]*"></label>
@@ -322,6 +353,11 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
       </form>
     </div>
     <button class="btn ghost" type="button" id="logoutBtn" style="margin-top:22px">Sair da conta</button>
+  </section>
+
+  <section id="tab-lote" hidden>
+    <button class="btn ghost" type="button" id="loteVoltar" style="margin-bottom:14px">← Voltar</button>
+    <div id="loteDet"></div>
   </section>
 
   <section id="tab-relatorio" hidden>
@@ -443,18 +479,18 @@ function recalculaAgua(S,teste){
   return {ok:true};
 }
 function recalcula(S,teste){
-  let est=S.estoqueInicial||0,tot=0;const mort=[],cons=[],pesos={0:S.pesos[0]},racaoAt={};
+  let est=S.estoqueInicial||0,tot=0;const mort=[],elim=[],cons=[],pesos={0:S.pesos[0]},racaoAt={};
   for(let i=0;i<S.dias.length;i++){
     const d=S.dias[i],dia=i+1;
     const c=d.leitura==null?(d.consumo||0):est+(d.carga||0)-d.leitura;
     if(c<0)return {erro:dia};
     est=d.leitura==null?est+(d.carga||0)-c:d.leitura;
-    tot+=c;mort.push(d.mort||0);cons.push(c);
+    tot+=c;mort.push(d.mort||0);elim.push(d.elim||0);cons.push(c);
     if(d.peso>0){pesos[dia]=d.peso;racaoAt[dia]=tot}
   }
   const ra=recalculaAgua(S,teste);if(ra.erro)return ra;
   if(teste)return {ok:true};
-  Object.assign(S,{mort,consumos:cons,racaoTotal:tot,estoque:est,pesos,racaoAt,idade:S.dias.length});
+  Object.assign(S,{mort,elim,consumos:cons,racaoTotal:tot,estoque:est,pesos,racaoAt,idade:S.dias.length});
   return {ok:true};
 }
 function restore(o){
@@ -475,7 +511,9 @@ const nf=(n,d=0)=>n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFract
 const dateAt=d=>{const x=new Date(L.alojamento);x.setDate(x.getDate()+d);return x.toLocaleDateString("pt-BR")};
 const padraoAt=d=>{const ks=Object.keys(padrao).map(Number);for(let i=0;i<ks.length-1;i++){if(d>=ks[i]&&d<=ks[i+1]){const t=(d-ks[i])/(ks[i+1]-ks[i]);return padrao[ks[i]]+t*(padrao[ks[i+1]]-padrao[ks[i]])}}return padrao[42]};
 const mortAte=d=>S.mort.slice(0,d).reduce((a,b)=>a+b,0);
-const vivas=d=>L.alojadas-mortAte(d);
+const elimAte=d=>(S.elim||[]).slice(0,d).reduce((a,b)=>a+b,0);
+const perdasAte=d=>mortAte(d)+elimAte(d);
+const vivas=d=>L.alojadas-perdasAte(d);
 const pesoAges=()=>Object.keys(S.pesos).map(Number).sort((a,b)=>a-b);
 const ultimaPesagem=()=>{const a=pesoAges();return a[a.length-1]};
 const conv=d=>S.racaoAt[d]?S.racaoAt[d]/(vivas(d)*S.pesos[d]/1000):null;
@@ -488,14 +526,91 @@ function projection(){
   const d=ultimaPesagem(),p=S.pesos[d];
   const peso42=p*padrao[42]/padraoAt(d);
   const mortDia=S.mort.length?S.mort.slice(-7).reduce((a,b)=>a+b,0)/Math.min(7,S.mort.length):0;
-  const mort42=mortAte(S.idade)+mortDia*(42-S.idade);
+  const mort42=perdasAte(S.idade)+mortDia*(42-S.idade);
   const viv42=L.alojadas-mort42;
   const c=conv(d)||1.3;const conv42=c*1.21;
   return {peso42,mortDia,mort42,viv42,viab42:viv42/L.alojadas*100,conv42,racao42:viv42*peso42/1000*conv42};
 }
 
+function avaliarLote(){
+  const it=[],bons=[],idade=S.idade,viv=vivas(idade),soma=a=>a.reduce((t,v)=>t+(v||0),0);
+  if(idade<3)return {it,bons,poucos:true};
+  /* ---- peso ---- */
+  const pa=pesoAges().filter(a=>a>0);
+  if(pa.length){
+    const d=pa[pa.length-1],df=(S.pesos[d]/padraoAt(d)-1)*100;
+    const dicasPeso=["Conferir a temperatura na altura das aves e a ventilação: frio ou calor reduzem o ganho de peso.","Verificar se há ração o tempo todo nos comedouros e se a linha não está entupida.","Ajustar a altura de comedouros e bebedouros à altura do dorso das aves.","Conferir a vazão e a pressão da água: ave que bebe pouco come pouco.","Revisar o programa de luz e a densidade do galpão.","Se o problema continuar, pedir avaliação sanitária e necropsia ao técnico."];
+    let ant=null;if(pa.length>1){const d0=pa[pa.length-2];ant=(S.pesos[d0]/padraoAt(d0)-1)*100}
+    if(df<-7)it.push({n:"alerta",t:`Peso ${nf(Math.abs(df),1)}% abaixo do padrão aos ${d} dias`,x:`Média de ${nf(S.pesos[d])} g contra ${nf(padraoAt(d))} g esperados para ${L.linhagem}.`,d:dicasPeso});
+    else if(df<-3)it.push({n:"atencao",t:`Peso ${nf(Math.abs(df),1)}% abaixo do padrão aos ${d} dias`,x:`Média de ${nf(S.pesos[d])} g contra ${nf(padraoAt(d))} g esperados. Vale agir agora, antes que a diferença aumente.`,d:dicasPeso});
+    else bons.push(df>2?`peso acima do padrão (+${nf(df,1)}%)`:"peso no padrão da linhagem");
+    if(ant!=null&&df-ant>=2&&df<-3)it.push({n:"ok",t:"O peso está se aproximando do padrão",x:`Passou de ${nf(ant,1)}% para ${nf(df,1)}% em relação ao padrão desde a pesagem anterior. As correções estão funcionando.`});
+    if(idade-d>=8)it.push({n:"atencao",t:"Hora de pesar o lote",x:`A última pesagem foi aos ${d} dias. Pesar toda semana ajuda a corrigir o manejo a tempo.`});
+    /* conversão */
+    const c=conv(d);
+    if(c){let cf=0;for(let i=1;i<=d;i++)cf+=consumoAveDia(i);const cp=cf/padraoAt(d);
+      if(c>cp*1.08)it.push({n:"atencao",t:`Conversão de ${nf(c,2)} aos ${d} dias, acima da esperada (${nf(cp,2)})`,x:"As aves estão gastando mais ração para cada kg de peso.",d:["Conferir desperdício: comedouros muito baixos ou cheios demais, ração no chão.","Confirmar se as leituras do silo e as cargas estão lançadas certas.","Frio aumenta o consumo sem aumentar o peso: revisar o aquecimento.","Avaliar a qualidade da ração e a sanidade do lote com o técnico."]});
+      else bons.push("conversão alimentar boa");}
+  }else if(idade>=8)it.push({n:"atencao",t:"Nenhuma pesagem lançada",x:"Lance o peso médio na aba Lançar dia para acompanhar o lote contra o padrão da linhagem."});
+  /* ---- ração ---- */
+  const {real,prev}=consumoSeries();
+  const ult=real.slice(-7).filter(r=>{const dd=S.dias[r.d-1];return dd&&dd.leitura!=null});
+  if(ult.length>=3){
+    const r=soma(ult.map(x=>x.kg)),pv=soma(ult.map(x=>prev[x.d-1].kg)),df=pv?(r/pv-1)*100:0;
+    const dBaixo=["Calor derruba o consumo: conferir ventilação, nebulização e horário mais quente.","Verificar se falta ração nas linhas ou nos comedouros e se o motor do silo está funcionando.","Conferir a água: pouca água reduz o consumo de ração.","Observar sinais de doença, como aves apáticas, diarreia ou problemas respiratórios, e acionar o técnico."];
+    const dAlto=["Procurar desperdício: ração no chão, comedouros baixos ou cheios demais.","Frio faz as aves comerem mais para se aquecer: revisar o aquecimento.","Conferir se a leitura do silo e as cargas foram lançadas corretamente."];
+    if(df<-15)it.push({n:"alerta",t:`Consumo de ração ${nf(Math.abs(df),1)}% abaixo do previsto`,x:`${nf(r)} kg nos últimos ${ult.length} dias contra ${nf(pv)} kg esperados para as aves vivas.`,d:dBaixo});
+    else if(df<-8)it.push({n:"atencao",t:`Consumo de ração ${nf(Math.abs(df),1)}% abaixo do previsto`,x:`${nf(r)} kg nos últimos ${ult.length} dias contra ${nf(pv)} kg esperados.`,d:dBaixo});
+    else if(df>20)it.push({n:"alerta",t:`Consumo de ração ${nf(df,1)}% acima do previsto`,x:`${nf(r)} kg nos últimos ${ult.length} dias contra ${nf(pv)} kg esperados.`,d:dAlto});
+    else if(df>10)it.push({n:"atencao",t:`Consumo de ração ${nf(df,1)}% acima do previsto`,x:`${nf(r)} kg nos últimos ${ult.length} dias contra ${nf(pv)} kg esperados.`,d:dAlto});
+    else bons.push("consumo de ração dentro do previsto");
+  }
+  /* ---- água ---- */
+  const ag=(S.agua||[]).map((v,i)=>({d:i+1,v})).filter(x=>x.v!=null);
+  if(ag.length>=4){
+    const u=ag[ag.length-1],p3=ag.slice(-4,-1),med=soma(p3.map(x=>x.v))/p3.length;
+    const u7=ag.slice(-7),rac=soma(u7.map(x=>S.consumos[x.d-1]||0)),rel=rac?soma(u7.map(x=>x.v))/rac:null;
+    if(u.d===idade&&med>0&&u.v<med*0.85)it.push({n:"alerta",t:`Consumo de água caiu ${nf((1-u.v/med)*100,0)}% hoje`,x:`${nf(u.v)} litros contra média de ${nf(med)} litros nos 3 dias anteriores. Queda de água costuma ser o primeiro sinal de problema.`,d:["Conferir se os bebedouros estão com água e com a pressão certa.","Procurar vazamentos, registros fechados ou filtros entupidos.","Observar o comportamento das aves e, se estiverem apáticas, acionar o técnico logo."]});
+    if(rel&&rel>2.3)it.push({n:"atencao",t:`Relação água : ração alta (${nf(rel,2)} L por kg)`,x:"As aves estão bebendo muito em relação ao que comem.",d:["Calor aumenta a água: reforçar ventilação e resfriamento.","Procurar vazamentos nos bebedouros, que também molham a cama.","Fezes muito líquidas podem indicar problema intestinal: avaliar com o técnico."]});
+    else if(rel&&rel<1.5)it.push({n:"atencao",t:`Relação água : ração baixa (${nf(rel,2)} L por kg)`,x:"As aves estão bebendo pouco em relação ao que comem.",d:["Conferir a pressão e a altura das linhas de bebedouro.","Verificar a qualidade e a temperatura da água.","Confirmar se as leituras do hidrômetro estão certas."]});
+    else if(rel)bons.push("consumo de água normal");
+  }
+  /* ---- mortalidade ---- */
+  const mt=S.mort||[],el=S.elim||[],dM=["Fazer necropsia das aves mortas para identificar a causa.","Conferir temperatura, ventilação e amônia: cheiro forte e cama úmida pedem correção.","Revisar a qualidade da água e da ração.","Acionar o técnico da integradora se a mortalidade continuar alta."];
+  if(idade<=7){
+    const pct=soma(mt)/L.alojadas*100,lim=idade/7;
+    if(pct>2.5*lim&&pct>0.5)it.push({n:"alerta",t:`Mortalidade alta na primeira semana (${nf(pct,2)}%)`,x:`${nf(soma(mt))} aves mortas em ${idade} dias. O esperado é até cerca de 1,5% na primeira semana.`,d:["Conferir a temperatura da cama e do ar: pintinho com frio se amontoa e não come.","Verificar se todos acham água e ração, com papel ou bandejas perto dos bebedouros.","Observar umbigo mal cicatrizado e saco vitelino: pode ser problema da origem dos pintinhos.","Fazer necropsia e informar o técnico."]});
+    else if(pct>1.5*lim&&pct>0.3)it.push({n:"atencao",t:`Mortalidade acima do normal na primeira semana (${nf(pct,2)}%)`,x:`${nf(soma(mt))} aves mortas em ${idade} dias.`,d:["Conferir temperatura, água e ração ao alcance dos pintinhos.","Fazer necropsia das aves mortas."]});
+    else bons.push("mortalidade da primeira semana normal");
+  }else{
+    const m3=soma(mt.slice(-3))/3,m7=mt.length>3?soma(mt.slice(-10,-3))/Math.min(7,mt.length-3):m3,taxa=m3/viv*100;
+    if(taxa>0.2)it.push({n:"alerta",t:`Mortalidade alta: ${nf(m3,0)} aves por dia`,x:`Média dos últimos 3 dias, ${nf(taxa,2)}% das aves vivas por dia. O normal depois da primeira semana é até cerca de 0,1% por dia.`,d:dM});
+    else if(taxa>0.1)it.push({n:"atencao",t:`Mortalidade acima do normal: ${nf(m3,0)} aves por dia`,x:`Média dos últimos 3 dias, ${nf(taxa,2)}% das aves vivas por dia.`,d:dM});
+    else if(m7>0&&m3>m7*1.5&&taxa>0.05)it.push({n:"atencao",t:"Mortalidade subindo",x:`Média de ${nf(m3,0)} aves por dia nos últimos 3 dias, contra ${nf(m7,0)} nos dias anteriores.`,d:dM});
+    else bons.push("mortalidade baixa");
+  }
+  const e7=soma(el.slice(-7));
+  if(e7>viv*0.005)it.push({n:"atencao",t:`Muitas eliminações: ${nf(e7)} aves nos últimos 7 dias`,x:"Vale entender a causa dos descartes.",d:["Anotar o motivo das eliminações: refugo, problema de perna, onfalite ou lesões.","Refugos em quantidade podem indicar problema de pintinho, de temperatura no início ou de ração.","Problemas de perna podem vir de crescimento rápido, cama ruim ou falta de minerais: conversar com o técnico."]});
+  return {it,bons};
+}
+function renderAvaliacao(){
+  const {it,bons,poucos}=avaliarLote(),box=$("avaliacao");
+  if(poucos){box.innerHTML=`<div class="aval-top"><h2>Avaliação do lote</h2></div><p class="sub" style="margin:0">A avaliação aparece a partir do terceiro dia lançado.</p>`;return}
+  const prob=it.filter(x=>x.n!=="ok"),nAl=prob.filter(x=>x.n==="alerta").length;
+  const pill=nAl?'<span class="pill alert">Precisa de atenção</span>':prob.length?'<span class="pill warn">Pontos a acompanhar</span>':'<span class="pill ok">Tudo certo</span>';
+  const ord={alerta:0,atencao:1,ok:2};
+  let h=`<div class="aval-top"><h2>Avaliação do lote</h2>${pill}</div>`;
+  if(!prob.length)h+=`<div class="aval-item"><span class="dot ok"></span><div><b>Parabéns! O lote está no caminho certo.</b><p>${bons.length?"Tudo dentro do esperado para "+L.linhagem+": "+bons.join(", ")+".":"Nenhum ponto fora do esperado."} Continue com o mesmo manejo.</p></div></div>`;
+  [...it].sort((a,b)=>ord[a.n]-ord[b.n]).forEach(x=>{
+    h+=`<div class="aval-item"><span class="dot ${x.n}"></span><div><b>${x.t}</b><p>${x.x}</p>${x.d?`<details><summary>O que fazer (toque para ver)</summary><ul>${x.d.map(t=>`<li>${t}</li>`).join("")}</ul></details>`:""}</div></div>`;
+  });
+  if(prob.length&&bons.length)h+=`<p class="aval-ok">Dentro do esperado: ${bons.join(", ")}.</p>`;
+  h+=`<p class="aval-nota">Orientações gerais de manejo. Não substituem a avaliação do técnico no galpão.</p>`;
+  box.innerHTML=h;
+}
 function renderHoje(){
   $("farm").textContent=G.granja;
+  renderAvaliacao();
   const d=ultimaPesagem(),p=S.pesos[d],pd=padraoAt(d),diff=(p/pd-1)*100;
   const txt=Math.abs(diff)<1.5?"no ritmo do padrão":(diff<0?`${nf(Math.abs(diff),1)}% abaixo do padrão`:`${nf(diff,1)}% acima do padrão`);
   $("verdict").innerHTML=d?`Lote <span class="gap">${txt}</span> ${L.linhagem} aos ${d} dias`:`${L.galpao} alojado, aguardando a primeira pesagem`;
@@ -518,8 +633,8 @@ function consumoSeries(){
   const fim=Math.max(42,idade+3);
   for(let d=1;d<=fim;d++){
     let vivas;
-    if(d<=idade)vivas=L.alojadas-mortAte(d-1)-(S.mort[d-1]||0)/2;
-    else vivas=L.alojadas-mortAte(idade)-md*(d-idade-0.5);
+    if(d<=idade)vivas=L.alojadas-perdasAte(d-1)-((S.mort[d-1]||0)+((S.elim||[])[d-1]||0))/2;
+    else vivas=L.alojadas-perdasAte(idade)-md*(d-idade-0.5);
     prev.push({d,kg:Math.max(0,vivas)*consumoAveDia(d)/1000});
     if(d<=idade)real.push({d,kg:S.consumos[d-1]||0});
   }
@@ -599,11 +714,21 @@ function drawWeight(){
 }
 
 function drawMort(){
-  if(!S.mort.length){$("mortChart").innerHTML=`<text x="300" y="95" text-anchor="middle" font-size="15" fill="var(--muted)">Nenhuma mortalidade lançada ainda</text>`;return}
-  const W=600,H=180,pl=34,pr=8,pt=10,pb=24,n=S.mort.length,max=Math.max(...S.mort)*1.15;
-  const bw=(W-pl-pr)/n;let g="";
-  [0,Math.round(max/2)].forEach(v=>{const yy=H-pb-v/max*(H-pt-pb);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`});
-  S.mort.forEach((m,i)=>{const h=m/max*(H-pt-pb);g+=`<rect x="${pl+i*bw+1}" y="${H-pb-h}" width="${Math.max(bw-2,1)}" height="${h}" rx="1.5" fill="${i>=n-7?"var(--corn)":"var(--zinc)"}"><title>Dia ${i+1}: ${m} aves</title></rect>`;if((i+1)%7===0)g+=`<text x="${pl+i*bw+bw/2}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${i+1}d</text>`});
+  const mt=S.mort||[],el=S.elim||[],n=mt.length;
+  const tm=mt.reduce((a,b)=>a+b,0),te=el.reduce((a,b)=>a+b,0);
+  $("mortResumo").textContent=n?`No lote: ${nf(tm)} ${tm===1?"ave morta":"aves mortas"} e ${nf(te)} ${te===1?"eliminada":"eliminadas"}, ${nf((tm+te)/L.alojadas*100,2)}% das aves alojadas.`:"";
+  if(!n){$("mortChart").innerHTML=`<text x="300" y="100" text-anchor="middle" font-size="15" fill="var(--muted)">Nenhuma mortalidade lançada ainda</text>`;return}
+  const W=600,H=190,pl=38,pr=8,pt=12,pb=26;
+  const vmax=Math.max(4,...mt,...el),passo=vmax>200?100:vmax>80?40:vmax>40?20:vmax>16?10:vmax>8?4:2,max=Math.ceil(vmax*1.1/passo)*passo;
+  const slot=(W-pl-pr)/Math.max(n,14),bw=Math.min(7,Math.max(1.5,slot*0.34)),gap=Math.min(2,slot*0.08);
+  const y=v=>H-pb-v/max*(H-pt-pb);let g="";
+  for(let v=0;v<=max;v+=passo)g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`;
+  for(let i=0;i<n;i++){
+    const cx=pl+slot*(i+0.5),m=mt[i]||0,e=el[i]||0;
+    if(m>0)g+=`<rect x="${cx-gap/2-bw}" y="${y(m)}" width="${bw}" height="${H-pb-y(m)}" rx="1.5" fill="var(--corn)"><title>Dia ${i+1}: ${m} mortas</title></rect>`;
+    if(e>0)g+=`<rect x="${cx+gap/2}" y="${y(e)}" width="${bw}" height="${H-pb-y(e)}" rx="1.5" fill="var(--alert)"><title>Dia ${i+1}: ${e} eliminadas</title></rect>`;
+    if((i+1)%7===0)g+=`<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${i+1}d</text>`;
+  }
   $("mortChart").innerHTML=g;
 }
 
@@ -632,7 +757,7 @@ function drawSilo(){
   </svg>`;
   const c7=S.consumos.slice(-7),mx=Math.max(1,...c7),bw=100/Math.max(1,c7.length);
   const tend=c7[c7.length-1]>c7[0]*1.03?"subindo":c7[c7.length-1]<c7[0]*0.97?"caindo":"estável";
-  const bars=`<svg viewBox="0 0 100 34" preserveAspectRatio="none" style="width:100%;height:44px;display:block" aria-hidden="true">${c7.map((v,i)=>{const h=v/mx*30;return `<rect x="${i*bw+1}" y="${34-h}" width="${bw-2}" height="${h}" rx="1" fill="${i===c7.length-1?"var(--corn)":"var(--zinc)"}"/>`}).join("")}</svg>`;
+  const bars=`<svg viewBox="0 0 280 44" style="width:100%;max-width:320px;height:auto;display:block" aria-hidden="true">${c7.map((v,i)=>{const h=Math.max(2,v/mx*34),sl=280/7,w=14;return `<rect x="${i*sl+(sl-w)/2}" y="${38-h}" width="${w}" height="${h}" rx="3" fill="${i===c7.length-1?"var(--corn)":"var(--zinc)"}"><title>${nf(v)} kg</title></rect>`}).join("")}<line x1="0" x2="280" y1="38.5" y2="38.5" stroke="var(--line)"/></svg>`;
   const fig=(b,s)=>`<div><b>${b}</b><span>${s}</span></div>`;
   $("siloPanel").innerHTML=`
     <div class="silo-top"><h3>${quando}</h3><span class="pill ${st[0]}">${st[1]}</span></div>
@@ -650,13 +775,13 @@ function drawSilo(){
 function renderRelatorio(){
   const d=ultimaPesagem(),pr=projection();
   $("repSub").textContent=`${G.granja}, ${L.galpao}. Emitido em ${dateAt(S.idade)}, ${S.idade} dias de lote.`;
-  $("repMeta").innerHTML=[["Linhagem",L.linhagem],["Alojamento",dateAt(0)],["Aves alojadas",nf(L.alojadas)],["Aves vivas",nf(vivas(S.idade))],["Mortalidade acumulada",nf(mortAte(S.idade))],["Ração consumida",nf(S.racaoTotal)+" kg"]].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join("");
+  $("repMeta").innerHTML=[["Linhagem",L.linhagem],["Alojamento",dateAt(0)],["Aves alojadas",nf(L.alojadas)],["Aves vivas",nf(vivas(S.idade))],["Mortalidade acumulada",nf(mortAte(S.idade))],["Aves eliminadas",nf(elimAte(S.idade))],["Ração consumida",nf(S.racaoTotal)+" kg"]].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join("");
   const rows=pesoAges().filter(a=>a>0).map(a=>{const p=S.pesos[a],pd=padraoAt(a),df=(p/pd-1)*100,c=conv(a);
     return `<tr><td>${a} dias</td><td>${nf(p)} g</td><td>${nf(pd)} g</td><td class="${df<-2?"neg":df>0?"pos":""}">${df>0?"+":""}${nf(df,1)}%</td><td>${nf(gmd(a),1)} g</td><td>${c?nf(c,2):"–"}</td><td>${nf(viabAt(a),2)}%</td><td>${iep(a)?nf(iep(a)):"–"}</td></tr>`}).join("");
   $("repTable").innerHTML=`<thead><tr><th>Idade</th><th>Peso real</th><th>Padrão</th><th>Diferença</th><th>Ganho/dia</th><th>Conversão</th><th>Viabilidade</th><th>IEP</th></tr></thead><tbody>${rows}</tbody>`;
   $("projTable").innerHTML=`<thead><tr><th>Indicador</th><th>Projeção</th><th>Referência</th></tr></thead><tbody>
     <tr><td>Peso médio</td><td>${nf(pr.peso42/1000,2)} kg</td><td>${nf(padrao[42]/1000,2)} kg</td></tr>
-    <tr><td>Mortalidade acumulada</td><td>${nf(pr.mort42)} aves</td><td>média de ${nf(pr.mortDia,1)} por dia na última semana</td></tr>
+    <tr><td>Mortalidade e eliminação</td><td>${nf(pr.mort42)} aves</td><td>média de ${nf(pr.mortDia,1)} por dia na última semana</td></tr>
     <tr><td>Viabilidade</td><td>${nf(pr.viab42,2)}%</td><td>acima de 96%</td></tr>
     <tr><td>Conversão alimentar</td><td>${nf(pr.conv42,2)}</td><td>até 1,60</td></tr>
     <tr><td>IEP</td><td>${nf(pr.viab42*(pr.peso42/1000)/(42*pr.conv42)*100)}</td><td>acima de 400</td></tr>
@@ -693,7 +818,7 @@ function renderLancar(){
   }
   const n=S.dias.length,idx=[...Array(n).keys()].reverse(),mostrar=verTodosDias?idx:idx.slice(0,7);
   $("histDias").innerHTML=n?mostrar.map(i=>{const d=S.dias[i],c=S.consumos[i];
-    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.leitura!=null?`silo ${nf(d.leitura)} kg`:"sem leitura do silo",d.carga?`carga ${nf(d.carga)} kg`:null,`consumo ${nf(c||0)} kg`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
+    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,d.leitura!=null?`silo ${nf(d.leitura)} kg`:"sem leitura do silo",d.carga?`carga ${nf(d.carga)} kg`:null,`consumo ${nf(c||0)} kg`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
     return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span></div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
   $("verTodos").hidden=verTodosDias||n<=7;
 }
@@ -720,9 +845,44 @@ function renderHist(){
   const h=GALPOES[cur].hist||[];
   if(!h.length){const e=`<p class="sub">Nenhum lote encerrado neste galpão ainda.</p>`;$("histTec").innerHTML=e;$("histFin").innerHTML=e;return}
   const rs=[...h].reverse();
-  $("histTec").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Abate</th><th>Idade</th><th>Peso</th><th>Conversão</th><th>Viabilidade</th><th>IEP</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote}</td><td>${fmtData(r.abate)}</td><td>${r.idade} d</td><td>${nf(r.peso,3)} kg</td><td>${r.conv?nf(r.conv,2):"–"}</td><td>${nf(r.viab,2)}%</td><td>${r.iep?nf(r.iep):"–"}</td></tr>`).join("")}</tbody></table></div>`;
-  $("histFin").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Recebido</th><th>Gastos</th><th>Lucro</th><th>Lucro por ave</th><th>Custo por ave</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote} (${fmtData(r.abate)})</td><td>${brl(r.valor)}</td><td>${brl(r.gastos)}</td><td class="${r.lucro<0?"neg":"pos"}">${brl(r.lucro)}</td><td class="${r.lucro<0?"neg":""}">${brl(r.lucro/r.alojadas)}</td><td>${brl(r.gastos/r.alojadas)}</td></tr>`).join("")}</tbody></table></div><p class="sub" style="font-size:.85rem">Lucro = valor recebido da integração menos os gastos lançados no lote. Valores por ave consideram as aves alojadas.</p>`;
+  $("histTec").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Abate</th><th>Idade</th><th>Peso</th><th>Conversão</th><th>Viabilidade</th><th>IEP</th><th></th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote}</td><td>${fmtData(r.abate)}</td><td>${r.idade} d</td><td>${nf(r.peso,3)} kg</td><td>${r.conv?nf(r.conv,2):"–"}</td><td>${nf(r.viab,2)}%</td><td>${r.iep?nf(r.iep):"–"}</td><td><button type="button" class="vbtn" data-lote="${r.lote}">Ver tudo</button></td></tr>`).join("")}</tbody></table></div>`;
+  $("histFin").innerHTML=`<div class="tbl"><table><thead><tr><th>Lote</th><th>Recebido</th><th>Gastos</th><th>Lucro</th><th>Lucro por ave</th><th>Custo por ave</th><th></th></tr></thead><tbody>${rs.map(r=>`<tr><td>${r.lote} (${fmtData(r.abate)})</td><td>${brl(r.valor)}</td><td>${brl(r.gastos)}</td><td class="${r.lucro<0?"neg":"pos"}">${brl(r.lucro)}</td><td class="${r.lucro<0?"neg":""}">${brl(r.lucro/r.alojadas)}</td><td>${brl(r.gastos/r.alojadas)}</td><td><button type="button" class="vbtn" data-lote="${r.lote}">Ver tudo</button></td></tr>`).join("")}</tbody></table></div><p class="sub" style="font-size:.85rem">Lucro = valor recebido da integração menos os gastos lançados no lote. Valores por ave consideram as aves alojadas.</p>`;
 }
+let loteVolta="relatorio";
+function renderLoteDet(num){
+  const h=GALPOES[cur].hist||[],idx=h.findIndex(x=>x.lote===num);if(idx<0)return false;
+  const r=h[idx],ant=idx>0?h[idx-1]:null,f=(v,fn)=>v==null||Number.isNaN(v)?"–":fn(v);
+  const cmp=(v,va,dec,menorMelhor,suf="")=>{if(va==null||v==null)return "";const d=v-va;if(Math.abs(d)<Math.pow(10,-dec)/2)return `<small>igual ao lote ${ant.lote}</small>`;const bom=menorMelhor?d<0:d>0;return `<small class="${bom?"pos":"neg"}">${d>0?"+":"−"}${nf(Math.abs(d),dec)}${suf} vs lote ${ant.lote}</small>`};
+  const kpi=(t,v,c="")=>`<div class="kpi"><span>${t}</span><b>${v}</b>${c}</div>`;
+  const kgv=r.kg||r.aves*r.peso,lpa=r.lucro/r.alojadas,lpaA=ant?ant.lucro/ant.alojadas:null;
+  const mortPct=r.mortT!=null?r.mortT/r.alojadas*100:null;
+  const dl=rows=>`<dl class="lista-dl">${rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl>`;
+  const pes=(r.pesagens||[]).map(p=>{const df=(p.peso/p.padrao-1)*100;return `<tr><td>${p.d} dias</td><td>${nf(p.peso)} g</td><td>${nf(p.padrao)} g</td><td class="${df<-2?"neg":df>0?"pos":""}">${df>0?"+":""}${nf(df,1)}%</td><td>${p.conv?nf(p.conv,2):"–"}</td><td>${nf(p.viab,2)}%</td></tr>`}).join("");
+  const cats=Object.entries(r.gastosCat||{}).sort((a,b)=>b[1]-a[1]);
+  $("loteDet").innerHTML=`
+    <h2 style="margin-top:0">Lote ${r.lote}${r.galpao?`, ${r.galpao}`:""}</h2>
+    <p class="sub">${r.linhagem}. Alojado em ${fmtData(r.alojamento)}, abatido em ${fmtData(r.abate)}, com ${r.idade} dias.</p>
+    <div class="kpis">
+      ${kpi("Peso de saída",nf(r.peso,3)+" kg",cmp(r.peso,ant&&ant.peso,3,false," kg"))}
+      ${kpi("Conversão",f(r.conv,v=>nf(v,2)),cmp(r.conv,ant&&ant.conv,2,true))}
+      ${kpi("IEP",f(r.iep,v=>nf(v)),cmp(r.iep,ant&&ant.iep,0,false))}
+      ${kpi("Viabilidade",nf(r.viab,2)+"%",cmp(r.viab,ant&&ant.viab,2,false," pp"))}
+      ${kpi("Ganho por dia",f(r.gmd,v=>nf(v,1)+" g"),cmp(r.gmd,ant&&ant.gmd,1,false," g"))}
+      ${kpi("Lucro por ave",brl(lpa),lpaA==null?"":cmp(lpa,lpaA,2,false).replace(/([+−])([\d.,]+)/,(m,sg,v)=>sg+"R$ "+v))}
+    </div>
+    <h3>Produção</h3>
+    ${dl([["Aves alojadas",nf(r.alojadas)],["Aves carregadas",nf(r.aves)],["Mortalidade",r.mortT!=null?`${nf(r.mortT)} aves (${nf(mortPct,2)}%)`:"–"],["Eliminação",r.elimT!=null?`${nf(r.elimT)} aves (${nf(r.elimT/r.alojadas*100,2)}%)`:"–"],["Idade de abate",r.idade+" dias"],["Peso vivo total",nf(kgv)+" kg"],["Ração consumida",nf(r.racao)+" kg"],["Ração por ave carregada",nf(r.racao/r.aves,2)+" kg"],["Sobra recolhida",r.sobra!=null?nf(r.sobra)+" kg":"–"],["Água consumida",r.aguaT?nf(r.aguaT)+" litros":"–"],["Relação água : ração",r.relAgua?nf(r.relAgua,2)+" L/kg":"–"]])}
+    ${pes?`<h3>Pesagens</h3><div class="tbl"><table><thead><tr><th>Idade</th><th>Peso</th><th>Padrão</th><th>Diferença</th><th>Conversão</th><th>Viabilidade</th></tr></thead><tbody>${pes}</tbody></table></div>`:""}
+    <h3>Financeiro</h3>
+    ${dl([["Valor recebido da integração",brl(r.valor)],["Gastos do lote",brl(r.gastos)],["Lucro",`<span style="color:var(${r.lucro<0?"--alert":"--ok"})">${brl(r.lucro)}</span>`],["Lucro por ave alojada",brl(lpa)],["Custo por ave alojada",brl(r.gastos/r.alojadas)],["Custo por kg vivo",brl(r.gastos/kgv)],["Receita por kg vivo",brl(r.valor/kgv)]])}
+    ${cats.length?`<h3>Gastos por categoria</h3>${dl(cats.map(([c,v])=>[c,`${brl(v)} (${nf(v/r.gastos*100)}%)`]))}`:""}
+    ${r.mortT==null?`<p class="sub" style="font-size:.85rem">Este lote foi encerrado antes desta versão do app, por isso alguns dados aparecem como "–".</p>`:""}`;
+  return true;
+}
+function abreLote(num,de){if(renderLoteDet(num)){loteVolta=de;showTab("lote")}}
+$("histTec").addEventListener("click",e=>{const b=e.target.closest("[data-lote]");if(b)abreLote(+b.dataset.lote,"relatorio")});
+$("histFin").addEventListener("click",e=>{const b=e.target.closest("[data-lote]");if(b)abreLote(+b.dataset.lote,"financeiro")});
+$("loteVoltar").addEventListener("click",()=>showTab(loteVolta));
 function renderGalpaoSel(){
   $("galpaoSel").innerHTML=GALPOES.map((g,i)=>`<option value="${i}"${i===cur?" selected":""}>${g.L.galpao}</option>`).join("");
 }
@@ -730,7 +890,7 @@ function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLanc
 
 function showTab(tab){
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===tab));
-  ["hoje","lancar","relatorio","financeiro","config"].forEach(t=>$("tab-"+t).hidden=t!==tab);
+  ["hoje","lancar","relatorio","financeiro","config","lote"].forEach(t=>$("tab-"+t).hidden=t!==tab);
   $("cfgBtn").setAttribute("aria-pressed",tab==="config");
   window.scrollTo({top:0});
 }
@@ -775,7 +935,7 @@ $("cfgForm").addEventListener("submit",e=>{
   const cap=+$("cCap").value,ped=+$("cPed").value,marg=+$("cMarg").value,aves=+$("cAves").value;
   if(ped+marg>=cap){toast("O ponto de pedido mais a margem precisa ser menor que a capacidade do silo.");return}
   const g=GALPOES[cfgIdx];
-  if(aves<=g.S.mort.reduce((a,b)=>a+b,0)){toast("As aves alojadas precisam ser mais que a mortalidade já lançada.");return}
+  if(aves<=g.S.mort.reduce((a,b)=>a+b,0)+(g.S.elim||[]).reduce((a,b)=>a+b,0)){toast("As aves alojadas precisam ser mais que a mortalidade e a eliminação já lançadas.");return}
   const [y,m,d]=$("cAloj").value.split("-").map(Number);
   G.granja=$("cGranja").value.trim();
   Object.assign(g.L,{galpao:$("cGalpao").value.trim(),linhagem:$("cLinhagem").value,alojamento:new Date(y,m-1,d),alojadas:aves});
@@ -798,7 +958,7 @@ function resetEnc(){
 $("encOpen").addEventListener("click",()=>{
   if(typeof bloqueado!=="undefined"&&bloqueado){toast(msgBloq());return}
   const g=GALPOES[cfgIdx];
-  $("eData").value=isoDate(new Date());$("eAves").value=g.L.alojadas-g.S.mort.reduce((a,b)=>a+b,0);
+  $("eData").value=isoDate(new Date());$("eAves").value=g.L.alojadas-g.S.mort.reduce((a,b)=>a+b,0)-(g.S.elim||[]).reduce((a,b)=>a+b,0);
   $("ePeso").value="";$("eSobra").value=g.S.estoque;$("eValor").value="";
   $("encForm").hidden=false;$("encOpen").hidden=true;$("ePeso").focus();
 });
@@ -818,7 +978,17 @@ $("encForm").addEventListener("submit",e=>{
   const gastos=g.S.gastos.reduce((a,x)=>a+x.val,0),lucro=valor-gastos;
   g.hist=g.hist||[];
   const n=g.hist.length+1;
-  g.hist.push({lote:n,linhagem:g.L.linhagem,alojamento:isoDate(g.L.alojamento),abate:isoDate(ab),alojadas:g.L.alojadas,aves,idade,peso,racao,conv,viab,iep:iepF,gastos,valor,lucro});
+  const sm=a=>(a||[]).reduce((t,v)=>t+(v||0),0);
+  const mortT=sm(g.S.mort),elimT=sm(g.S.elim);
+  let aguaT=0,racaoAg=0;(g.S.agua||[]).forEach((v,i)=>{if(v!=null){aguaT+=v;racaoAg+=g.S.consumos[i]||0}});
+  const gastosCat={};g.S.gastos.forEach(x=>gastosCat[x.cat]=(gastosCat[x.cat]||0)+x.val);
+  const pad=PADROES[g.L.linhagem]||PADROES["Ross 308"];
+  const pesagens=Object.keys(g.S.pesos).map(Number).filter(d=>d>0).sort((a,b)=>a-b).map(d=>{
+    const perd=sm((g.S.mort||[]).slice(0,d))+sm((g.S.elim||[]).slice(0,d)),viv=g.L.alojadas-perd,p=g.S.pesos[d],r=g.S.racaoAt[d];
+    return {d,peso:p,padrao:Math.round(padTab(pad,d)),conv:r&&viv>0?r/(viv*p/1000):null,viab:viv/g.L.alojadas*100};
+  });
+  g.hist.push({lote:n,galpao:g.L.galpao,linhagem:g.L.linhagem,alojamento:isoDate(g.L.alojamento),abate:isoDate(ab),alojadas:g.L.alojadas,aves,idade,peso,racao,conv,viab,iep:iepF,gastos,valor,lucro,
+    mortT,elimT,sobra,kg,gmd:(peso*1000-(g.S.pesos[0]||44))/idade,aguaT:aguaT||null,relAgua:racaoAg?aguaT/racaoAg:null,gastosCat,pesagens,peso0:g.S.pesos[0]||null});
   const hUlt=g.S.hidroUlt!=null?g.S.hidroUlt:(g.S.hidroInicial!=null?g.S.hidroInicial:null);
   g.S={idade:0,pesos:{0:g.S.pesos[0]},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[],dias:[],estoqueInicial:0,hidroInicial:hUlt,agua:[],hidroUlt:hUlt};
   g.L.alojamento=(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})();
@@ -830,16 +1000,16 @@ $("form").addEventListener("submit",e=>{
   e.preventDefault();
   if(bloqueado){toast(msgBloq());return}
   if(!Array.isArray(S.dias))migraS(S);
-  const m=+$("fMort").value,ls=$("fSilo").value.trim(),carga=+$("fCarga").value||0,peso=+$("fPeso").value||null;
+  const m=+$("fMort").value,el=+$("fElim").value||0,ls=$("fSilo").value.trim(),carga=+$("fCarga").value||0,peso=+$("fPeso").value||null;
   const hidro=parseDec($("fAgua").value);
   if(Number.isNaN(hidro)){toast("A leitura do hidrômetro não é um número válido. Use o formato 5006,44.");return}
   if(editDia!=null){
     const i=editDia,old=S.dias[i];
-    const novo={...old,mort:m,carga,peso,hidro,leitura:ls===""&&old.leitura==null?null:+ls};
+    const novo={...old,mort:m,elim:el,carga,peso,hidro,leitura:ls===""&&old.leitura==null?null:+ls};
     S.dias[i]=novo;
     const r=recalcula(S,true);
     if(r.erro){S.dias[i]=old;toast(r.tipo==="agua"?`Com essa correção, a leitura do hidrômetro do dia ${r.erro} ficou menor que a anterior. Confira os números.`:`Com essa correção, a leitura do silo do dia ${r.erro} ficou maior que o estoque mais a carga. Confira os números.`);return}
-    recalcula(S);editDia=null;e.target.reset();$("fCarga").value=0;renderAll();
+    recalcula(S);editDia=null;e.target.reset();$("fCarga").value=0;$("fElim").value=0;renderAll();
     toast(`Dia ${i+1} corrigido. Indicadores recalculados.`);return;
   }
   const leitura=+ls;
@@ -847,8 +1017,8 @@ $("form").addEventListener("submit",e=>{
   if(consumo<0){toast("A leitura do silo ficou maior que o estoque mais a carga. Confira os números.");return}
   const hAnt=S.hidroUlt!=null?S.hidroUlt:S.hidroInicial;
   if(hidro!=null&&hAnt!=null&&hidro<hAnt){toast(`A leitura do hidrômetro (${fmtM3(hidro)}) ficou menor que a anterior (${fmtM3(hAnt)}). Confira os números.`);return}
-  S.dias.push({mort:m,leitura,carga,peso,hidro});recalcula(S);
-  e.target.reset();$("fCarga").value=0;renderAll();
+  S.dias.push({mort:m,elim:el,leitura,carga,peso,hidro});recalcula(S);
+  e.target.reset();$("fCarga").value=0;$("fElim").value=0;renderAll();
   toast(`Dia ${S.idade} salvo. Ração: ${nf(consumo)} kg${S.agua[S.idade-1]!=null?`, água: ${nf(S.agua[S.idade-1])} L`:""}`);
 });
 $("histDias").addEventListener("click",e=>{
@@ -856,16 +1026,16 @@ $("histDias").addEventListener("click",e=>{
   if(eb){
     if(bloqueado){toast(msgBloq());return}
     const i=+eb.dataset.editdia,d=S.dias[i];editDia=i;
-    $("fMort").value=d.mort;$("fSilo").value=d.leitura!=null?d.leitura:"";$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
+    $("fMort").value=d.mort;$("fElim").value=d.elim||0;$("fSilo").value=d.leitura!=null?d.leitura:"";$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
     renderLancar();$("lancarTitle").scrollIntoView({behavior:"smooth",block:"start"});$("fMort").focus({preventScroll:true});return;
   }
   if(db){
     if(bloqueado){toast(msgBloq());return}
     if(!db.classList.contains("confirm")){db.classList.add("confirm");db.textContent="Confirmar";setTimeout(()=>{if(db.isConnected){db.classList.remove("confirm");db.textContent="Excluir"}},4000);return}
-    const i=+db.dataset.deldia;S.dias.splice(i,1);if(editDia===i)editDia=null;recalcula(S);$("form").reset();$("fCarga").value=0;renderAll();toast(`Dia ${i+1} excluído`);
+    const i=+db.dataset.deldia;S.dias.splice(i,1);if(editDia===i)editDia=null;recalcula(S);$("form").reset();$("fCarga").value=0;$("fElim").value=0;renderAll();toast(`Dia ${i+1} excluído`);
   }
 });
-$("editCancel").addEventListener("click",()=>{editDia=null;$("form").reset();$("fCarga").value=0;renderLancar()});
+$("editCancel").addEventListener("click",()=>{editDia=null;$("form").reset();$("fCarga").value=0;$("fElim").value=0;renderLancar()});
 $("verTodos").addEventListener("click",()=>{verTodosDias=true;renderLancar()});
 $("gCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
 $("gData").value="2026-09-24";
