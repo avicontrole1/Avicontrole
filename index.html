@@ -134,6 +134,7 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .tbl{overflow-x:auto;margin-bottom:18px}
+.tk th,.tk td{white-space:nowrap}
 .aval{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
 .aval-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .aval-top h2{margin:0}
@@ -178,7 +179,13 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
 @media (max-width:520px){.farm{display:none}}
 @media (max-width:480px){.grid{grid-template-columns:1fr 1fr}.silo{grid-template-columns:120px minmax(0,1fr);gap:12px}.silo-figs{grid-template-columns:1fr;gap:10px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-@media print{header,nav,.demo-note,#tab-hoje,#tab-lancar,#tab-financeiro,#tab-config,.no-print{display:none!important}#tab-relatorio{display:block!important}body{background:#fff;color:#000}.wrap{max-width:none}}
+@media print{header,nav,.demo-note,#tab-hoje,#tab-lancar,#tab-financeiro,#tab-config,.no-print{display:none!important}#tab-relatorio{display:block!important}body{background:#fff;color:#000}.wrap{max-width:none}
+  body.print-tk #tab-relatorio>*:not(#ticketsSec){display:none!important}
+  body.print-tk #ticketsSec .no-print,body.print-tk #licenca,body.print-tk #adminBar{display:none!important}
+  body.print-tk #tkCab{display:block!important}
+  .toast{display:none!important}
+  .tk th,.tk td{font-size:11pt}.tbl{overflow:visible}}
+#tkCab{display:none;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -254,6 +261,7 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
       <div class="two"><label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label><label>Aves eliminadas hoje<input id="fElim" type="number" inputmode="numeric" min="0" value="0"></label></div>
       <label>Leitura do silo (kg)<small>Opcional. Faça de vez em quando para conferir o consumo real; nos outros dias o app estima.</small><input id="fSilo" type="number" inputmode="numeric" min="0"></label>
       <label>Carga de ração recebida (kg)<small>Deixe 0 se não chegou ração hoje</small><input id="fCarga" type="number" inputmode="numeric" min="0" value="0"></label>
+      <label id="ticketBox" hidden>Nº do ticket da ração<small>Se chegaram duas cargas no dia, separe os números por vírgula</small><input id="fTicket" type="text" autocomplete="off" maxlength="120"></label>
       <label>Leitura do hidrômetro (m³)<small>Com duas casas decimais, ex.: 5006,44. Deixe em branco se não leu hoje.</small><input id="fAgua" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9.,]*"></label>
       <label>Peso médio (g)<small>Só nos dias de pesagem</small><input id="fPeso" type="number" inputmode="numeric" min="0"></label>
       <label>Observação<small>Opcional: tratamento, ocorrência, visita técnica</small><input id="fObs" type="text" autocomplete="off" maxlength="300"></label>
@@ -376,6 +384,13 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
     <p id="repConc"></p>
     <h3>Lotes anteriores deste galpão</h3>
     <div id="histTec"></div>
+    <div id="ticketsSec">
+      <div id="tkCab"><h2 style="margin:0" id="tkCabTit"></h2><p class="sub" style="margin:2px 0 0" id="tkCabSub"></p></div>
+      <h2>Tickets de ração da granja</h2>
+      <p class="sub" style="margin-top:-4px">Todas as cargas recebidas nos lotes atuais de todos os galpões.</p>
+      <div class="cfg-actions no-print" style="margin-bottom:14px"><button class="btn ghost" type="button" id="tkPrint">Imprimir ou salvar PDF só dos tickets</button><button class="btn ghost" type="button" id="tkCsv">Baixar planilha</button></div>
+      <div id="ticketsRel"></div>
+    </div>
     <p class="foot">AviControle, acompanhamento de lotes de frango de corte. Projeções baseadas no ritmo real do lote e na curva padrão da linhagem; servem de apoio e não substituem a avaliação técnica no galpão.</p>
   </section>
 </div>
@@ -849,7 +864,7 @@ function renderLancar(){
   }
   const n=S.dias.length,idx=[...Array(n).keys()].reverse(),mostrar=verTodosDias?idx:idx.slice(0,7);
   $("histDias").innerHTML=n?mostrar.map(i=>{const d=S.dias[i],c=S.consumos[i];
-    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,temLeit(d)?`silo lido ${nf(d.leitura)} kg`:`silo estimado ${nf(Math.max(0,(S.estDia||[])[i]||0))} kg`,d.carga?`carga ${nf(d.carga)} kg`:null,`consumo ${nf(c||0)} kg${S.consumoReal&&S.consumoReal[i]?"":" (estimado)"}`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
+    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,temLeit(d)?`silo lido ${nf(d.leitura)} kg`:`silo estimado ${nf(Math.max(0,(S.estDia||[])[i]||0))} kg`,d.carga?`carga ${nf(d.carga)} kg${d.ticket?` (ticket ${esc(d.ticket)})`:" (sem ticket)"}`:null,`consumo ${nf(c||0)} kg${S.consumoReal&&S.consumoReal[i]?"":" (estimado)"}`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
     return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span>${d.obs?`<span style="color:var(--ink);font-style:italic">${esc(d.obs)}</span>`:""}</div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
   $("verTodos").hidden=verTodosDias||n<=7;
 }
@@ -914,10 +929,45 @@ function abreLote(num,de){if(renderLoteDet(num)){loteVolta=de;showTab("lote")}}
 $("histTec").addEventListener("click",e=>{const b=e.target.closest("[data-lote]");if(b)abreLote(+b.dataset.lote,"relatorio")});
 $("histFin").addEventListener("click",e=>{const b=e.target.closest("[data-lote]");if(b)abreLote(+b.dataset.lote,"financeiro")});
 $("loteVoltar").addEventListener("click",()=>showTab(loteVolta));
+function renderTickets(){
+  const linhas=[],res=[];let tR=0,tC=0,tE=0,tN=0;
+  GALPOES.forEach(g=>{
+    const S2=g.S,dias=S2.dias||[];let rec=0,n=0;
+    if(S2.estoqueInicial>0){rec+=S2.estoqueInicial;linhas.push({tk:"–",data:g.L.alojamento,g:g.L.galpao,dia:0,kg:S2.estoqueInicial,obs:"carga do alojamento"})}
+    dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const nums=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean);n+=Math.max(1,nums.length);
+      const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk:nums.length?nums.join(", "):"sem número",data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
+    res.push({g:g.L.galpao,n,rec,cons:S2.racaoTotal||0,est:Math.max(0,S2.estoque||0)});tR+=rec;tC+=S2.racaoTotal||0;tE+=Math.max(0,S2.estoque||0);tN+=n;
+  });
+  if(!linhas.length){$("ticketsRel").innerHTML='<p class="sub">Nenhuma carga de ração lançada ainda.</p>';return}
+  linhas.sort((a,b)=>a.data-b.data||a.g.localeCompare(b.g));
+  window.__tk={linhas,res,tot:{tN,tR,tC,tE}};
+  $("ticketsRel").innerHTML=`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Cargas</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
+    ${res.map(r=>`<tr><td>${esc(r.g)}</td><td>${r.n}</td><td>${nf(r.rec)} kg</td><td>${nf(r.cons)} kg</td><td>${nf(r.est)} kg</td></tr>`).join("")}
+    <tr style="font-weight:700"><td>Fazenda</td><td>${tN}</td><td>${nf(tR)} kg</td><td>${nf(tC)} kg</td><td>${nf(tE)} kg</td></tr></tbody></table></div>
+    <h3>Todos os tickets</h3><div class="tbl"><table class="tk"><thead><tr><th>Ticket</th><th>Data</th><th>Galpão</th><th>Dia do lote</th><th>Kg</th></tr></thead><tbody>
+    ${linhas.map(l=>`<tr><td>${esc(l.tk)}${l.obs?` <small style="color:var(--muted)">(${l.obs})</small>`:""}</td><td>${l.data.toLocaleDateString("pt-BR")}</td><td>${esc(l.g)}</td><td>${l.dia}</td><td>${nf(l.kg)}</td></tr>`).join("")}
+    </tbody></table></div><p class="sub" style="font-size:.85rem">Ração consumida inclui os dias estimados depois da última leitura do silo.</p>`;
+}
+$("tkPrint").addEventListener("click",()=>{
+  $("tkCabTit").textContent=`${G.granja||"Granja"}: tickets de ração`;
+  $("tkCabSub").textContent=`Emitido em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}. Lotes atuais de todos os galpões.`;
+  document.body.classList.add("print-tk");
+  const fim=()=>{document.body.classList.remove("print-tk");window.removeEventListener("afterprint",fim)};
+  window.addEventListener("afterprint",fim);setTimeout(()=>{try{window.print()}catch(_){toast("Use o menu do navegador para imprimir.")}setTimeout(fim,60000)},50);
+});
+$("tkCsv").addEventListener("click",()=>{
+  const t=window.__tk;if(!t||!t.linhas.length){toast("Nenhuma carga lançada ainda.");return}
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`,n=v=>String(Math.round(v)).replace(".",",");
+  const L1=[["Ticket","Data","Galpão","Dia do lote","Kg"].join(";"),...t.linhas.map(l=>[q(l.tk+(l.obs?` (${l.obs})`:"")),l.data.toLocaleDateString("pt-BR"),q(l.g),l.dia,n(l.kg)].join(";"))];
+  const L2=["","Resumo por galpão",["Galpão","Cargas","Ração recebida (kg)","Ração consumida (kg)","Estoque estimado (kg)"].join(";"),...t.res.map(r=>[q(r.g),r.n,n(r.rec),n(r.cons),n(r.est)].join(";")),["Fazenda",t.tot.tN,n(t.tot.tR),n(t.tot.tC),n(t.tot.tE)].join(";")];
+  const nome=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L1.concat(L2).join("\r\n")],{type:"text/csv;charset=utf-8"}));
+  a.download=`tickets-${nome}-${isoD(new Date())}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("Planilha gerada");
+});
 function renderGalpaoSel(){
   $("galpaoSel").innerHTML=GALPOES.map((g,i)=>`<option value="${i}"${i===cur?" selected":""}>${g.L.galpao}</option>`).join("");
 }
-function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLancar();renderFinanceiro();renderHist();save()}
+function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLancar();renderFinanceiro();renderHist();renderTickets();save()}
 
 function showTab(tab){
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===tab));
@@ -1031,12 +1081,12 @@ $("form").addEventListener("submit",e=>{
   e.preventDefault();
   if(bloqueado){toast(msgBloq());return}
   if(!Array.isArray(S.dias))migraS(S);
-  const obs=$("fObs").value.trim(),m=+$("fMort").value,el=+$("fElim").value||0,ls=$("fSilo").value.trim(),carga=+$("fCarga").value||0,peso=+$("fPeso").value||null;
+  const tk=$("fTicket").value.trim().replace(/\s*,\s*/g,", "),obs=$("fObs").value.trim(),m=+$("fMort").value,el=+$("fElim").value||0,ls=$("fSilo").value.trim(),carga=+$("fCarga").value||0,peso=+$("fPeso").value||null;
   const hidro=parseDec($("fAgua").value);
   if(Number.isNaN(hidro)){toast("A leitura do hidrômetro não é um número válido. Use o formato 5006,44.");return}
   if(editDia!=null){
     const i=editDia,old=S.dias[i];
-    const novo={...old,obs,mort:m,elim:el,carga,peso,hidro,leitura:ls===""&&old.leitura==null?null:+ls};
+    const novo={...old,ticket:carga>0?tk:"",obs,mort:m,elim:el,carga,peso,hidro,leitura:ls===""&&old.leitura==null?null:+ls};
     S.dias[i]=novo;
     const r=recalcula(S,true);
     if(r.erro){S.dias[i]=old;toast(r.tipo==="agua"?`Com essa correção, a leitura do hidrômetro do dia ${r.erro} ficou menor que a anterior. Confira os números.`:`Com essa correção, a leitura do silo do dia ${r.erro} ficou maior do que o possível (estoque anterior + cargas). Confira se falta lançar alguma carga.`);return}
@@ -1046,18 +1096,20 @@ $("form").addEventListener("submit",e=>{
   const leitura=ls===""?null:+ls;
   const hAnt=S.hidroUlt!=null?S.hidroUlt:S.hidroInicial;
   if(hidro!=null&&hAnt!=null&&hidro<hAnt){toast(`A leitura do hidrômetro (${fmtM3(hidro)}) ficou menor que a anterior (${fmtM3(hAnt)}). Confira os números.`);return}
-  S.dias.push({obs,mort:m,elim:el,leitura,carga,peso,hidro});
+  S.dias.push({ticket:carga>0?tk:"",obs,mort:m,elim:el,leitura,carga,peso,hidro});
   {const t=recalcula(S,true);if(t.erro){S.dias.pop();toast(t.tipo==="agua"?"A leitura do hidrômetro ficou menor que a anterior. Confira os números.":"A leitura do silo ficou maior do que o possível (estoque anterior + cargas). Confira se falta lançar alguma carga.");return}}
   recalcula(S);
   e.target.reset();$("fCarga").value=0;$("fElim").value=0;renderAll();
-  toast(`Dia ${S.idade} salvo. ${leitura!=null?"Consumo real recalculado desde a leitura anterior":`Ração estimada: ${nf(S.consumos[S.idade-1])} kg`}${S.agua[S.idade-1]!=null?`, água: ${nf(S.agua[S.idade-1])} L`:""}`);
+  toast(`${carga>0&&!tk?"Atenção: carga sem número de ticket. ":""}Dia ${S.idade} salvo. ${leitura!=null?"Consumo real recalculado desde a leitura anterior":`Ração estimada: ${nf(S.consumos[S.idade-1])} kg`}${S.agua[S.idade-1]!=null?`, água: ${nf(S.agua[S.idade-1])} L`:""}`);
 });
+const mostraTicket=()=>{$("ticketBox").hidden=!(+$("fCarga").value>0)};
+$("fCarga").addEventListener("input",mostraTicket);$("form").addEventListener("reset",()=>setTimeout(mostraTicket,0));
 $("histDias").addEventListener("click",e=>{
   const eb=e.target.closest("[data-editdia]"),db=e.target.closest("[data-deldia]");
   if(eb){
     if(bloqueado){toast(msgBloq());return}
     const i=+eb.dataset.editdia,d=S.dias[i];editDia=i;
-    $("fMort").value=d.mort;$("fObs").value=d.obs||"";$("fElim").value=d.elim||0;$("fSilo").value=d.leitura!=null?d.leitura:"";$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
+    $("fMort").value=d.mort;$("fObs").value=d.obs||"";$("fTicket").value=d.ticket||"";setTimeout(()=>$("ticketBox").hidden=!(+$("fCarga").value>0),0);$("fElim").value=d.elim||0;$("fSilo").value=d.leitura!=null?d.leitura:"";$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
     renderLancar();$("lancarTitle").scrollIntoView({behavior:"smooth",block:"start"});$("fMort").focus({preventScroll:true});return;
   }
   if(db){
