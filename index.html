@@ -134,6 +134,8 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .tbl{overflow-x:auto;margin-bottom:18px}
+#ticketBox[hidden]{display:none!important}
+.fases-cfg{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px 12px;align-items:end}
 #cnDia{scroll-margin-top:calc(70px + env(safe-area-inset-top,0px))}
 .cn details{margin:6px 0 14px}.cn summary{cursor:pointer;font-weight:600;min-height:40px;display:flex;align-items:center}
 .cn .est{color:var(--muted);font-size:.8em}
@@ -281,7 +283,7 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
     <form id="form">
       <div class="two"><label>Aves mortas hoje<input id="fMort" type="number" inputmode="numeric" min="0" required></label><label>Aves eliminadas hoje<input id="fElim" type="number" inputmode="numeric" min="0" value="0"></label></div>
       <label>Carga de ração recebida (kg)<small>Deixe 0 se não chegou ração hoje</small><input id="fCarga" type="number" inputmode="numeric" min="0" value="0"></label>
-      <label id="ticketBox" hidden>Nº do ticket da ração<small>Se chegaram duas cargas no dia, separe os números por vírgula</small><input id="fTicket" type="text" autocomplete="off" maxlength="120"></label>
+      <div id="ticketBox" hidden style="display:grid;gap:14px"><label>Ração (fase)<small>Sugerida pelo que o galpão já recebeu</small><select id="fFase"></select></label><label>Nº do ticket da ração<small>Se chegaram duas cargas no dia, separe os números por vírgula</small><input id="fTicket" type="text" autocomplete="off" maxlength="120"></label></div>
       <label>Leitura do hidrômetro (m³)<small>Com duas casas decimais, ex.: 5006,44. Deixe em branco se não leu hoje.</small><input id="fAgua" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9.,]*"></label>
       <label>Peso médio (g)<small>Só nos dias de pesagem</small><input id="fPeso" type="number" inputmode="numeric" min="0"></label>
       <label>Observação<small>Opcional: tratamento, ocorrência, visita técnica</small><input id="fObs" type="text" autocomplete="off" maxlength="300"></label>
@@ -341,6 +343,10 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
           <label>Margem (kg)<small>Folga para não derramar</small><input id="cMarg" type="number" inputmode="numeric" min="0" required></label>
         </div>
       </fieldset>
+      <fieldset><legend>Plano de rações</legend>
+        <p class="sub" style="margin:-6px 0 0">Kg de cada ração por ave alojada, conforme o programa da integradora.</p>
+        <div class="fases-cfg" id="cFases"></div>
+      </fieldset>
       <fieldset><legend>Água</legend>
         <label>Leitura do hidrômetro no alojamento (m³)<small>Ponto de partida do consumo de água deste lote. Pode deixar em branco: aí o consumo começa a contar a partir da segunda leitura.</small><input id="cHidro" type="text" inputmode="decimal" autocomplete="off"></label>
         <label>Relação água : ração esperada<small>Litros de água por kg de ração. O comum é 1,8; em dias quentes pode passar de 2.</small><input id="cRelAgua" type="text" inputmode="decimal" autocomplete="off" required></label>
@@ -397,6 +403,8 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
     <div class="meta" id="repMeta"></div>
     <h3>Desempenho por idade</h3>
     <div class="tbl"><table id="repTable"></table></div>
+    <h3>Rações do lote por fase</h3>
+    <div id="repFases"></div>
     <h3>Consumo de ração: real x esperado</h3>
     <div id="repConsumo"></div>
     <h3>Projeção até o abate (42 dias)</h3>
@@ -566,6 +574,21 @@ function restore(o){
   o.galpoes.forEach(g=>GALPOES.push({L:{...g.L,alojamento:parseD(g.L.alojamento)},S:g.S,SILO:g.SILO,hist:g.hist||[]}));
   GALPOES.forEach(g=>migraS(g.S));
   useGalpao(Math.min(o.cur||0,GALPOES.length-1));
+}
+const FASES_PADRAO=[{nome:"Pré-inicial",kgAve:0.2},{nome:"Inicial",kgAve:1},{nome:"Crescimento",kgAve:2.2},{nome:"Final",kgAve:1.5}];
+const fasesDe=Lx=>(Lx&&Array.isArray(Lx.fases)&&Lx.fases.length?Lx.fases:FASES_PADRAO);
+function calcFases(g){
+  const F=fasesDe(g.L),S2=g.S,al=g.L.alojadas||0,idx=Object.fromEntries(F.map((f,i)=>[f.nome,i]));
+  const rows=F.map(f=>({nome:f.nome,plan:f.kgAve*al,rec:0,cons:0,silo:0,inf:0}));
+  const pick=()=>{for(let i=0;i<rows.length;i++)if(rows[i].rec<rows[i].plan*0.9)return i;return rows.length-1};
+  const fila=[];
+  const entra=(kg,nome)=>{let i=nome!=null&&idx[nome]!=null?idx[nome]:null;const inf=i==null;if(inf)i=pick();rows[i].rec+=kg;if(inf)rows[i].inf+=kg;fila.push({i,kg})};
+  if(S2.estoqueInicial>0)entra(S2.estoqueInicial,F[0].nome);
+  (S2.dias||[]).forEach((d,k)=>{if(+d.carga>0)entra(+d.carga,d.fase||null);let c=(S2.consumos||[])[k]||0;
+    while(c>0&&fila.length){const q=fila[0],t=Math.min(q.kg,c);rows[q.i].cons+=t;q.kg-=t;c-=t;if(q.kg<=0.001)fila.shift()}});
+  fila.forEach(q=>rows[q.i].silo+=q.kg);
+  const atual=fila.length?rows[fila[0].i].nome:null;
+  return {rows,atual,sugerida:rows[pick()].nome};
 }
 function novoGalpao(){
   let n=GALPOES.length+1;while(GALPOES.some(g=>g.L.galpao===`Galpão ${n}`))n++;
@@ -893,7 +916,7 @@ function renderLancar(){
   }
   const n=S.dias.length,idx=[...Array(n).keys()].reverse(),mostrar=verTodosDias?idx:idx.slice(0,7);
   $("histDias").innerHTML=n?mostrar.map(i=>{const d=S.dias[i],c=S.consumos[i];
-    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,(S.ajustes||[]).some(a=>a.dia===i+1)?`estoque ajustado ${nf((S.estDia||[])[i]||0)} kg`:`silo estimado ${nf(Math.max(0,(S.estDia||[])[i]||0))} kg`,d.carga?`carga ${nf(d.carga)} kg${d.ticket?` (ticket ${esc(d.ticket)})`:" (sem ticket)"}`:null,`consumo ${nf(c||0)} kg${S.consumoReal&&S.consumoReal[i]?"":" (estimado)"}`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
+    const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,(S.ajustes||[]).some(a=>a.dia===i+1)?`estoque ajustado ${nf((S.estDia||[])[i]||0)} kg`:`silo estimado ${nf(Math.max(0,(S.estDia||[])[i]||0))} kg`,d.carga?`carga ${nf(d.carga)} kg${d.fase?` de ${esc(d.fase)}`:""}${d.ticket?` (ticket ${esc(d.ticket)})`:" (sem ticket)"}`:null,`consumo ${nf(c||0)} kg${S.consumoReal&&S.consumoReal[i]?"":" (estimado)"}`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
     return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span>${d.obs?`<span style="color:var(--ink);font-style:italic">${esc(d.obs)}</span>`:""}</div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
   $("verTodos").hidden=verTodosDias||n<=7;
 }
@@ -963,15 +986,15 @@ function renderTickets(){
   GALPOES.forEach(g=>{
     const S2=g.S,dias=S2.dias||[];let rec=0;const tks=new Set();let semN=0;
     if(S2.estoqueInicial>0){rec+=S2.estoqueInicial;linhas.push({tk:"",data:g.L.alojamento,g:g.L.galpao,dia:0,kg:S2.estoqueInicial,obs:"carga do alojamento"})}
-    dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const tk=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
+    dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const fase=d.fase||"";const tk=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
       if(tk)tks.add(tk);else semN++;
-      const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk,data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
+      const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk,fase,data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
     res.push({g:g.L.galpao,n:tks.size+semN,rec,cons:S2.racaoTotal||0,est:Math.max(0,S2.estoque||0)});tR+=rec;tC+=S2.racaoTotal||0;tE+=Math.max(0,S2.estoque||0);
   });
   if(!linhas.length){$("ticketsRel").innerHTML='<p class="sub">Nenhuma carga de ração lançada ainda.</p>';window.__tk=null;return}
   const mapa=new Map(),grupos=[];
-  linhas.forEach(l=>{if(l.tk){if(!mapa.has(l.tk)){const gr={tk:l.tk,datas:[],partes:[],kg:0};mapa.set(l.tk,gr);grupos.push(gr)}const gr=mapa.get(l.tk);gr.datas.push(l.data);gr.partes.push({g:l.g,kg:l.kg});gr.kg+=l.kg}
-    else grupos.push({tk:"",obs:l.obs||"sem número",datas:[l.data],partes:[{g:l.g,kg:l.kg}],kg:l.kg})});
+  linhas.forEach(l=>{if(l.tk){if(!mapa.has(l.tk)){const gr={tk:l.tk,fase:l.fase,datas:[],partes:[],kg:0};mapa.set(l.tk,gr);grupos.push(gr)}const gr=mapa.get(l.tk);gr.datas.push(l.data);gr.partes.push({g:l.g,kg:l.kg});gr.kg+=l.kg}
+    else grupos.push({tk:"",fase:l.fase,obs:l.obs||"sem número",datas:[l.data],partes:[{g:l.g,kg:l.kg}],kg:l.kg})});
   grupos.forEach(gr=>{gr.datas.sort((a,b)=>a-b);gr.data=gr.datas[0]});
   grupos.sort((a,b)=>a.data-b.data||(a.partes[0].g).localeCompare(b.partes[0].g));
   const nTk=mapa.size+grupos.filter(x=>!x.tk&&x.obs!=="carga do alojamento").length;
@@ -979,12 +1002,12 @@ function renderTickets(){
   const dtxt=gr=>{const u=[...new Set(gr.datas.map(fd))];return u.join("<br>")};
   const ptxt=gr=>gr.partes.length>1?gr.partes.map(p=>`<span style="white-space:nowrap">${esc(p.g)}: ${nf(p.kg)}</span>`).join("<br>"):`<span style="white-space:nowrap">${esc(gr.partes[0].g)}</span>`;
   window.__tk={linhas,grupos,res,tot:{tN:nTk,tR,tC,tE}};
-  $("ticketsRel").innerHTML=`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Tickets</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
+  $("ticketsRel").innerHTML=renderFasesGranja()+`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Tickets</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
     ${res.map(r=>`<tr><td>${esc(r.g)}</td><td>${r.n}</td><td>${nf(r.rec)} kg</td><td>${nf(r.cons)} kg</td><td>${nf(r.est)} kg</td></tr>`).join("")}
     <tr style="font-weight:700"><td>Fazenda</td><td>${nTk}</td><td>${nf(tR)} kg</td><td>${nf(tC)} kg</td><td>${nf(tE)} kg</td></tr></tbody></table></div>
     <p class="sub" style="font-size:.85rem;margin-top:-8px">Na linha Fazenda, um ticket dividido entre galpões conta uma vez só.</p>
     <h3>Todos os tickets</h3><div class="tbl"><table class="tkl"><thead><tr><th>Ticket</th><th>Kg</th><th>Data</th><th>Galpão</th></tr></thead><tbody>
-    ${grupos.map(gr=>`<tr><td>${gr.tk?esc(gr.tk):`– <small style="color:var(--muted)">(${gr.obs})</small>`}</td><td>${nf(gr.kg)}</td><td>${dtxt(gr)}</td><td>${ptxt(gr)}</td></tr>`).join("")}
+    ${grupos.map(gr=>`<tr><td>${gr.tk?esc(gr.tk):`– <small style="color:var(--muted)">(${gr.obs})</small>`}${gr.fase?`<br><small style="color:var(--muted)">${esc(gr.fase)}</small>`:""}</td><td>${nf(gr.kg)}</td><td>${dtxt(gr)}</td><td>${ptxt(gr)}</td></tr>`).join("")}
     </tbody></table></div><p class="sub" style="font-size:.85rem">Ticket dividido entre galpões aparece uma vez, com o total e a parte de cada galpão. Ração consumida inclui os dias estimados depois do último ajuste do estoque.</p>`;
 }
 $("tkPrint").addEventListener("click",()=>{const n=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");gerarPDF($("ticketsSec"),`tickets-${n}-${isoD(new Date())}.pdf`,`${G.granja||"Granja"}: tickets de ração`,["#tkCab"])});
@@ -1140,10 +1163,25 @@ function renderConsumoNum(){
   $("cnDiaBtn").onclick=()=>{cnDiaAberto=!cnDiaAberto;$("cnDia").hidden=!cnDiaAberto;$("cnDiaBtn").textContent=cnDiaAberto?"Esconder consumo dia a dia":"Ver consumo dia a dia";if(cnDiaAberto)$("cnDia").scrollIntoView({behavior:"smooth",block:"start"})};
   rb.innerHTML=(reais.length?`<p class="sub" style="margin:0 0 6px">Consumo real até o último ajuste do estoque: ${nf(rR)} kg; esperado pela linhagem: ${nf(rE)} kg (${dif>0?"+":""}${nf(dif,1)}%).</p>`:"")+tabSemanas(D);
 }
+function renderFases(){
+  const g=GALPOES[cur],r=calcFases(g),al=g.L.alojadas||1,inf=r.rows.some(x=>x.inf>0);
+  $("repFases").innerHTML=`<div class="tbl"><table class="tk"><thead><tr><th>Ração</th><th>Plano</th><th>Recebido</th><th>Consumido</th><th>No silo</th><th>Consumido por ave</th></tr></thead><tbody>
+  ${r.rows.map(x=>`<tr><td>${esc(x.nome)}</td><td>${nf(x.plan)} kg</td><td>${nf(x.rec)} kg</td><td>${nf(x.cons)} kg</td><td>${nf(x.silo)} kg</td><td>${nf(x.cons/al,3)} kg</td></tr>`).join("")}
+  <tr style="font-weight:700"><td>Total</td><td>${nf(r.rows.reduce((a,x)=>a+x.plan,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.rec,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.cons,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.silo,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.cons,0)/al,3)} kg</td></tr></tbody></table></div>
+  <p class="sub" style="font-size:.85rem">Plano = kg por ave × ${nf(al)} aves alojadas. O consumo de cada ração segue a ordem de entrada no silo (a primeira que entra é a primeira que sai).${r.atual?` No silo agora: ${esc(r.atual)}.`:""}${inf?" Cargas lançadas sem a fase foram distribuídas pelo plano, na ordem das rações.":""}</p>`;
+}
+function renderFasesGranja(){
+  const nomes=[];GALPOES.forEach(g=>fasesDe(g.L).forEach(f=>{if(!nomes.includes(f.nome))nomes.push(f.nome)}));
+  const lin=GALPOES.map(g=>{const r=calcFases(g),m={};r.rows.forEach(x=>m[x.nome]=x.cons);return {g:g.L.galpao,m,t:r.rows.reduce((a,x)=>a+x.cons,0)}});
+  const tot=Object.fromEntries(nomes.map(n=>[n,lin.reduce((a,l)=>a+(l.m[n]||0),0)]));
+  return `<h3>Ração consumida por fase e galpão (kg)</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th>${nomes.map(n=>`<th>${esc(n)}</th>`).join("")}<th>Total</th></tr></thead><tbody>
+  ${lin.map(l=>`<tr><td>${esc(l.g)}</td>${nomes.map(n=>`<td>${l.m[n]!=null?nf(l.m[n]):"–"}</td>`).join("")}<td>${nf(l.t)}</td></tr>`).join("")}
+  <tr style="font-weight:700"><td>Fazenda</td>${nomes.map(n=>`<td>${nf(tot[n])}</td>`).join("")}<td>${nf(lin.reduce((a,l)=>a+l.t,0))}</td></tr></tbody></table></div>`;
+}
 function renderGalpaoSel(){
   $("galpaoSel").innerHTML=GALPOES.map((g,i)=>`<option value="${i}"${i===cur?" selected":""}>${g.L.galpao}</option>`).join("");
 }
-function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLancar();renderFinanceiro();renderHist();renderTickets();save()}
+function renderAll(){renderGalpaoSel();renderHoje();renderRelatorio();renderLancar();renderFinanceiro();renderHist();renderTickets();renderFases();save()}
 
 function showTab(tab){
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===tab));
@@ -1164,6 +1202,7 @@ function fillCfg(i){
   $("cGranja").value=G.granja;$("cGalpao").value=g.L.galpao;$("cLinhagem").value=g.L.linhagem;
   $("cAloj").value=isoDate(g.L.alojamento);$("cAves").value=g.L.alojadas;$("cPeso0").value=g.S.pesos[0];
   $("cCap").value=g.SILO.cap;$("cPed").value=g.SILO.pedido;$("cMarg").value=g.SILO.margem;
+  $("cFases").innerHTML=fasesDe(g.L).concat([{nome:"",kgAve:""}]).slice(0,5).map((f,i)=>`<label>Ração ${i+1}<input data-fn="${i}" type="text" value="${esc(f.nome||"")}" placeholder="${i===4?"opcional":""}"></label><label>Kg por ave<input data-fk="${i}" type="text" inputmode="decimal" value="${f.kgAve===""?"":String(f.kgAve).replace(".",",")}"></label>`).join("");
   $("cHidro").value=g.S.hidroInicial!=null?fmtM3(g.S.hidroInicial):"";$("cRelAgua").value=String(g.L.relAgua||1.8).replace(".",",");
   renderGalpList();resetEnc();
 }
@@ -1201,6 +1240,9 @@ $("cfgForm").addEventListener("submit",e=>{
   if(!(rel>0)){toast("Informe a relação água : ração, por exemplo 1,8.");return}
   const hOld=g.S.hidroInicial;g.S.hidroInicial=hIni;
   if(recalculaAgua(g.S,true).erro){g.S.hidroInicial=hOld;toast("A leitura inicial do hidrômetro ficou maior que a primeira leitura lançada. Confira os números.");return}
+  const fs=[];for(let i=0;i<5;i++){const nm=($("cFases").querySelector(`[data-fn="${i}"]`)||{}).value,kk=parseDec(($("cFases").querySelector(`[data-fk="${i}"]`)||{}).value);if(nm&&nm.trim()){if(!(kk>0)){toast(`Informe os kg por ave da ração ${nm.trim()}.`);return}fs.push({nome:nm.trim(),kgAve:kk})}}
+  if(!fs.length){toast("Informe pelo menos uma ração no plano.");return}
+  g.L.fases=fs;
   g.L.relAgua=rel;
   g.S.pesos[0]=+$("cPeso0").value;Object.assign(g.SILO,{cap,pedido:ped,margem:marg});recalcula(g.S);
   useGalpao(cfgIdx);renderAll();showTab("hoje");toast(`${g.L.galpao} salvo`);
@@ -1262,7 +1304,7 @@ $("form").addEventListener("submit",e=>{
   if(Number.isNaN(hidro)){toast("A leitura do hidrômetro não é um número válido. Use o formato 5006,44.");return}
   if(editDia!=null){
     const i=editDia,old=S.dias[i];
-    const novo={...old,ticket:carga>0?tk:"",obs,mort:m,elim:el,carga,peso,hidro};
+    const novo={...old,ticket:carga>0?tk:"",fase:carga>0?$("fFase").value:"",obs,mort:m,elim:el,carga,peso,hidro};
     S.dias[i]=novo;
     const r=recalcula(S,true);
     if(r.erro){S.dias[i]=old;toast(r.tipo==="agua"?`Com essa correção, a leitura do hidrômetro do dia ${r.erro} ficou menor que a anterior. Confira os números.`:`Com essa correção, a leitura do silo do dia ${r.erro} ficou maior do que o possível (estoque anterior + cargas). Confira se falta lançar alguma carga.`);return}
@@ -1271,20 +1313,21 @@ $("form").addEventListener("submit",e=>{
   }
   const hAnt=S.hidroUlt!=null?S.hidroUlt:S.hidroInicial;
   if(hidro!=null&&hAnt!=null&&hidro<hAnt){toast(`A leitura do hidrômetro (${fmtM3(hidro)}) ficou menor que a anterior (${fmtM3(hAnt)}). Confira os números.`);return}
-  S.dias.push({ticket:carga>0?tk:"",obs,mort:m,elim:el,carga,peso,hidro});
+  S.dias.push({ticket:carga>0?tk:"",fase:carga>0?$("fFase").value:"",obs,mort:m,elim:el,carga,peso,hidro});
   {const t=recalcula(S,true);if(t.erro){S.dias.pop();toast(t.tipo==="agua"?"A leitura do hidrômetro ficou menor que a anterior. Confira os números.":"A leitura do silo ficou maior do que o possível (estoque anterior + cargas). Confira se falta lançar alguma carga.");return}}
   recalcula(S);
   e.target.reset();$("fCarga").value=0;$("fElim").value=0;renderAll();
   toast(`${carga>0&&!tk?"Atenção: carga sem número de ticket. ":""}Dia ${S.idade} salvo. Ração do dia: ${nf(S.consumos[S.idade-1])} kg${S.agua[S.idade-1]!=null?`, água: ${nf(S.agua[S.idade-1])} L`:""}`);
 });
-const mostraTicket=()=>{$("ticketBox").hidden=!(+$("fCarga").value>0)};
+const preencheFases=(sel)=>{const g=GALPOES[cur],F=fasesDe(g.L),sug=calcFases(g).sugerida;$("fFase").innerHTML=F.map(f=>`<option${f.nome===(sel||sug)?" selected":""}>${esc(f.nome)}</option>`).join("")};
+const mostraTicket=()=>{const on=+$("fCarga").value>0;if(on&&$("ticketBox").hidden&&editDia==null)preencheFases();$("ticketBox").hidden=!on};
 $("fCarga").addEventListener("input",mostraTicket);$("form").addEventListener("reset",()=>setTimeout(mostraTicket,0));
 $("histDias").addEventListener("click",e=>{
   const eb=e.target.closest("[data-editdia]"),db=e.target.closest("[data-deldia]");
   if(eb){
     if(bloqueado){toast(msgBloq());return}
     const i=+eb.dataset.editdia,d=S.dias[i];editDia=i;
-    $("fMort").value=d.mort;$("fObs").value=d.obs||"";$("fTicket").value=d.ticket||"";setTimeout(()=>$("ticketBox").hidden=!(+$("fCarga").value>0),0);$("fElim").value=d.elim||0;$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
+    $("fMort").value=d.mort;$("fObs").value=d.obs||"";$("fTicket").value=d.ticket||"";preencheFases(d.fase||null);setTimeout(()=>$("ticketBox").hidden=!(+$("fCarga").value>0),0);$("fElim").value=d.elim||0;$("fCarga").value=d.carga||0;$("fPeso").value=d.peso||"";$("fAgua").value=d.hidro!=null?fmtM3(d.hidro):"";
     renderLancar();$("lancarTitle").scrollIntoView({behavior:"smooth",block:"start"});$("fMort").focus({preventScroll:true});return;
   }
   if(db){
