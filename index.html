@@ -142,6 +142,7 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .ajrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 .ajrow span{color:var(--muted);font-size:.82rem;display:block}
 .tk th,.tk td{white-space:nowrap}
+.tkl{min-width:0;font-size:.86rem}.tkl th,.tkl td{padding:8px 6px}.tkl th:nth-child(3),.tkl td:nth-child(3),.tkl th:nth-child(4),.tkl td:nth-child(4){text-align:left}.tkl td{vertical-align:top;line-height:1.35}.tkl td:nth-child(2),.tkl td:nth-child(3){white-space:nowrap}
 .aval{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
 .aval-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .aval-top h2{margin:0}
@@ -958,23 +959,33 @@ $("histTec").addEventListener("click",e=>{const b=e.target.closest("[data-lote]"
 $("histFin").addEventListener("click",e=>{const b=e.target.closest("[data-lote]");if(b)abreLote(+b.dataset.lote,"financeiro")});
 $("loteVoltar").addEventListener("click",()=>showTab(loteVolta));
 function renderTickets(){
-  const linhas=[],res=[];let tR=0,tC=0,tE=0,tN=0;
+  const linhas=[],res=[];let tR=0,tC=0,tE=0;
   GALPOES.forEach(g=>{
-    const S2=g.S,dias=S2.dias||[];let rec=0,n=0;
-    if(S2.estoqueInicial>0){rec+=S2.estoqueInicial;linhas.push({tk:"–",data:g.L.alojamento,g:g.L.galpao,dia:0,kg:S2.estoqueInicial,obs:"carga do alojamento"})}
-    dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const nums=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean);n+=Math.max(1,nums.length);
-      const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk:nums.length?nums.join(", "):"sem número",data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
-    res.push({g:g.L.galpao,n,rec,cons:S2.racaoTotal||0,est:Math.max(0,S2.estoque||0)});tR+=rec;tC+=S2.racaoTotal||0;tE+=Math.max(0,S2.estoque||0);tN+=n;
+    const S2=g.S,dias=S2.dias||[];let rec=0;const tks=new Set();let semN=0;
+    if(S2.estoqueInicial>0){rec+=S2.estoqueInicial;linhas.push({tk:"",data:g.L.alojamento,g:g.L.galpao,dia:0,kg:S2.estoqueInicial,obs:"carga do alojamento"})}
+    dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const tk=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
+      if(tk)tks.add(tk);else semN++;
+      const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk,data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
+    res.push({g:g.L.galpao,n:tks.size+semN,rec,cons:S2.racaoTotal||0,est:Math.max(0,S2.estoque||0)});tR+=rec;tC+=S2.racaoTotal||0;tE+=Math.max(0,S2.estoque||0);
   });
-  if(!linhas.length){$("ticketsRel").innerHTML='<p class="sub">Nenhuma carga de ração lançada ainda.</p>';return}
-  linhas.sort((a,b)=>a.data-b.data||a.g.localeCompare(b.g));
-  window.__tk={linhas,res,tot:{tN,tR,tC,tE}};
-  $("ticketsRel").innerHTML=`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Cargas</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
+  if(!linhas.length){$("ticketsRel").innerHTML='<p class="sub">Nenhuma carga de ração lançada ainda.</p>';window.__tk=null;return}
+  const mapa=new Map(),grupos=[];
+  linhas.forEach(l=>{if(l.tk){if(!mapa.has(l.tk)){const gr={tk:l.tk,datas:[],partes:[],kg:0};mapa.set(l.tk,gr);grupos.push(gr)}const gr=mapa.get(l.tk);gr.datas.push(l.data);gr.partes.push({g:l.g,kg:l.kg});gr.kg+=l.kg}
+    else grupos.push({tk:"",obs:l.obs||"sem número",datas:[l.data],partes:[{g:l.g,kg:l.kg}],kg:l.kg})});
+  grupos.forEach(gr=>{gr.datas.sort((a,b)=>a-b);gr.data=gr.datas[0]});
+  grupos.sort((a,b)=>a.data-b.data||(a.partes[0].g).localeCompare(b.partes[0].g));
+  const nTk=mapa.size+grupos.filter(x=>!x.tk&&x.obs!=="carga do alojamento").length;
+  const fd=d=>d.toLocaleDateString("pt-BR");
+  const dtxt=gr=>{const u=[...new Set(gr.datas.map(fd))];return u.join("<br>")};
+  const ptxt=gr=>gr.partes.length>1?gr.partes.map(p=>`<span style="white-space:nowrap">${esc(p.g)}: ${nf(p.kg)}</span>`).join("<br>"):`<span style="white-space:nowrap">${esc(gr.partes[0].g)}</span>`;
+  window.__tk={linhas,grupos,res,tot:{tN:nTk,tR,tC,tE}};
+  $("ticketsRel").innerHTML=`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Tickets</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
     ${res.map(r=>`<tr><td>${esc(r.g)}</td><td>${r.n}</td><td>${nf(r.rec)} kg</td><td>${nf(r.cons)} kg</td><td>${nf(r.est)} kg</td></tr>`).join("")}
-    <tr style="font-weight:700"><td>Fazenda</td><td>${tN}</td><td>${nf(tR)} kg</td><td>${nf(tC)} kg</td><td>${nf(tE)} kg</td></tr></tbody></table></div>
-    <h3>Todos os tickets</h3><div class="tbl"><table class="tk"><thead><tr><th>Ticket</th><th>Data</th><th>Galpão</th><th>Dia do lote</th><th>Kg</th></tr></thead><tbody>
-    ${linhas.map(l=>`<tr><td>${esc(l.tk)}${l.obs?` <small style="color:var(--muted)">(${l.obs})</small>`:""}</td><td>${l.data.toLocaleDateString("pt-BR")}</td><td>${esc(l.g)}</td><td>${l.dia}</td><td>${nf(l.kg)}</td></tr>`).join("")}
-    </tbody></table></div><p class="sub" style="font-size:.85rem">Ração consumida inclui os dias estimados depois do último ajuste do estoque.</p>`;
+    <tr style="font-weight:700"><td>Fazenda</td><td>${nTk}</td><td>${nf(tR)} kg</td><td>${nf(tC)} kg</td><td>${nf(tE)} kg</td></tr></tbody></table></div>
+    <p class="sub" style="font-size:.85rem;margin-top:-8px">Na linha Fazenda, um ticket dividido entre galpões conta uma vez só.</p>
+    <h3>Todos os tickets</h3><div class="tbl"><table class="tkl"><thead><tr><th>Ticket</th><th>Kg</th><th>Data</th><th>Galpão</th></tr></thead><tbody>
+    ${grupos.map(gr=>`<tr><td>${gr.tk?esc(gr.tk):`– <small style="color:var(--muted)">(${gr.obs})</small>`}</td><td>${nf(gr.kg)}</td><td>${dtxt(gr)}</td><td>${ptxt(gr)}</td></tr>`).join("")}
+    </tbody></table></div><p class="sub" style="font-size:.85rem">Ticket dividido entre galpões aparece uma vez, com o total e a parte de cada galpão. Ração consumida inclui os dias estimados depois do último ajuste do estoque.</p>`;
 }
 $("tkPrint").addEventListener("click",()=>{const n=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");gerarPDF($("ticketsSec"),`tickets-${n}-${isoD(new Date())}.pdf`,`${G.granja||"Granja"}: tickets de ração`,["#tkCab"])});
 /* ===== Gerador de PDF próprio (sem bibliotecas externas) ===== */
@@ -1063,14 +1074,16 @@ function gerarPDF(raiz,nome,titulo,pular=[]){
 function baixa(blob,nome){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),15000);toast("PDF gerado")}
 
 $("tkCsv").addEventListener("click",()=>{
-  const t=window.__tk;if(!t||!t.linhas.length){toast("Nenhuma carga lançada ainda.");return}
-  const q=v=>`"${String(v).replace(/"/g,'""')}"`,n=v=>String(Math.round(v)).replace(".",",");
-  const L1=[["Ticket","Data","Galpão","Dia do lote","Kg"].join(";"),...t.linhas.map(l=>[q(l.tk+(l.obs?` (${l.obs})`:"")),l.data.toLocaleDateString("pt-BR"),q(l.g),l.dia,n(l.kg)].join(";"))];
-  const L2=["","Resumo por galpão",["Galpão","Cargas","Ração recebida (kg)","Ração consumida (kg)","Estoque estimado (kg)"].join(";"),...t.res.map(r=>[q(r.g),r.n,n(r.rec),n(r.cons),n(r.est)].join(";")),["Fazenda",t.tot.tN,n(t.tot.tR),n(t.tot.tC),n(t.tot.tE)].join(";")];
+  const t=window.__tk;if(!t||!t.grupos.length){toast("Nenhuma carga lançada ainda.");return}
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`,n=v=>String(Math.round(v));
+  const L1=[["Ticket","Data","Galpões","Kg total"].join(";"),...t.grupos.map(gr=>[q(gr.tk||`- (${gr.obs})`),q([...new Set(gr.datas.map(d=>d.toLocaleDateString("pt-BR")))].join(" e ")),q(gr.partes.map(p=>`${p.g}: ${n(p.kg)}`).join(" + ")),n(gr.kg)].join(";"))];
+  const L2=["","Detalhe por galpão",["Ticket","Data","Galpão","Dia do lote","Kg"].join(";"),...t.linhas.map(l=>[q(l.tk||`- (${l.obs||"sem número"})`),l.data.toLocaleDateString("pt-BR"),q(l.g),l.dia,n(l.kg)].join(";"))];
+  const L3=["","Resumo por galpão",["Galpão","Tickets","Ração recebida (kg)","Ração consumida (kg)","Estoque estimado (kg)"].join(";"),...t.res.map(r=>[q(r.g),r.n,n(r.rec),n(r.cons),n(r.est)].join(";")),["Fazenda",t.tot.tN,n(t.tot.tR),n(t.tot.tC),n(t.tot.tE)].join(";")];
   const nome=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L1.concat(L2).join("\r\n")],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+L1.concat(L2,L3).join("\r\n")],{type:"text/csv;charset=utf-8"}));
   a.download=`tickets-${nome}-${isoD(new Date())}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("Planilha gerada");
 });
+
 function renderAjustes(){
   const a=(S.ajustes||[]).slice().sort((x,y)=>y.dia-x.dia||(y.ts||0)-(x.ts||0));
   $("ajLista").innerHTML=a.length?`<div class="sub" style="margin:0 0 2px;font-weight:600">Ajustes deste lote</div>`+a.slice(0,8).map(x=>`<div class="ajrow"><div><b>${nf(x.kg)} kg</b><span>${dateAt(x.dia)}${x.ts?" às "+new Date(x.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}, dia ${x.dia} do lote${x.dia>S.idade?" (aguardando o lançamento do dia)":""}</span></div><button type="button" class="sbtn danger" data-ajdel="${x.dia}|${x.ts||0}">Excluir</button></div>`).join(""):"";
