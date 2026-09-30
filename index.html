@@ -520,13 +520,16 @@ function parseDec(t){
 const fmtM3=v=>v==null?"":v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 function recalculaAgua(S,teste){
   const n=S.dias.length,agua=new Array(n).fill(null);
-  let lastH=S.hidroInicial!=null?S.hidroInicial:null,lastIdx=-1;
+  const gg=(typeof GALPOES!=="undefined")?GALPOES.find(x=>x.S===S):null,Lx=gg?gg.L:L;
+  const w=[];let perd=0;
+  for(let i=0;i<n;i++){const d=S.dias[i],pd=(d.mort||0)+(d.elim||0);const viv=Math.max(1,(Lx.alojadas||1)-perd-pd/2);perd+=pd;w.push(Math.max(0.001,consumoAveLin(Lx.linhagem,i+1)*viv))}
+  let lastH=S.hidroInicial!=null?S.hidroInicial:null,lastIdx=-1,prim=null;
   for(let i=0;i<n;i++){
     const h=S.dias[i].hidro;if(h==null)continue;
-    if(lastH!=null){const diff=h-lastH;if(diff<0)return {erro:i+1,tipo:"agua"};const por=diff*1000/(i-lastIdx);for(let k=lastIdx+1;k<=i;k++)agua[k]=por}
+    if(lastH!=null){const diff=h-lastH;if(diff<0)return {erro:i+1,tipo:"agua"};let ws=0;for(let k=lastIdx+1;k<=i;k++)ws+=w[k];for(let k=lastIdx+1;k<=i;k++)agua[k]=diff*1000*w[k]/ws;if(prim==null)prim=lastIdx}
     lastH=h;lastIdx=i;
   }
-  if(!teste){S.agua=agua;S.hidroUlt=lastH}
+  if(!teste){S.agua=agua;S.hidroUlt=lastH;S.aguaDe=prim;S.aguaAte=lastIdx}
   return {ok:true};
 }
 const consumoAveLin=(lin,d)=>{const t=CONSUMO_AVE[lin]||CONSUMO_AVE["Ross 308"];return t[Math.min(Math.max(d,1),t.length)-1]};
@@ -556,17 +559,20 @@ function recalcula(S,teste){
   Object.assign(S,{mort,elim,consumos:cons.map(v=>Math.round(v)),consumoReal:real,estDia:estD,ritmo:r,ultLeitura:ult,racaoTotal:tot,estoque:est,pesos,racaoAt,idade:n});
   return {ok:true};
 }
-function estoqueAgora(){
-  const k=S.idade,pend=(S.ajustes||[]).filter(a=>a.dia>k&&a.ts).sort((a,b)=>b.ts-a.ts)[0];
-  if(pend){const h=Math.max(0,(Date.now()-pend.ts)/3600000),viv=vivas(k);let kg=pend.kg,rest=h/24,d=pend.dia;while(rest>0&&d<pend.dia+60){const f=Math.min(1,rest);kg-=consumoAveLin(L.linhagem,d)*viv/1000*(S.ritmo||1)*f;rest-=1;d++}return {kg,horas:h,pend}}
-  if(!k)return {kg:S.estoque||0,horas:0};
-  const fim=new Date(L.alojamento);fim.setDate(fim.getDate()+k+1);
+function estoqueAgoraDe(g){
+  const S2=g.S,L2=g.L,k=S2.idade||0;
+  const viv=Math.max(1,(L2.alojadas||1)-(S2.dias||[]).reduce((a,d)=>a+(d.mort||0)+(d.elim||0),0));
+  const pend=(S2.ajustes||[]).filter(a=>a.dia>k&&a.ts).sort((a,b)=>b.ts-a.ts)[0];
+  const desconta=(kg,d0,h)=>{let rest=h/24,d=d0;while(rest>0&&d<d0+60){const f=Math.min(1,rest);kg-=consumoAveLin(L2.linhagem,d)*viv/1000*(S2.ritmo||1)*f;rest-=1;d++}return kg};
+  if(pend){const h=Math.max(0,(Date.now()-pend.ts)/3600000);return {kg:desconta(pend.kg,pend.dia,h),horas:h,pend}}
+  if(!k)return {kg:S2.estoque||0,horas:0};
+  const fim=new Date(L2.alojamento);fim.setDate(fim.getDate()+k+1);
   const h=(Date.now()-fim.getTime())/3600000;
-  if(h<=0)return {kg:S.estoque,horas:0};
-  let kg=S.estoque,rest=h/24,d=k+1;const viv=vivas(k);
-  while(rest>0&&d<k+60){const f=Math.min(1,rest);kg-=consumoAveLin(L.linhagem,d)*viv/1000*(S.ritmo||1)*f;rest-=1;d++}
-  return {kg,horas:h};
+  if(h<=0)return {kg:S2.estoque,horas:0};
+  return {kg:desconta(S2.estoque,k+1,h),horas:h};
 }
+function estoqueAgora(){return estoqueAgoraDe(GALPOES[cur])}
+function idadeHoje(Lx){const h=new Date();h.setHours(0,0,0,0);const a=new Date(Lx.alojamento);a.setHours(0,0,0,0);return Math.round((h-a)/864e5)}
 function restore(o){
   if(!o||!Array.isArray(o.galpoes)||!o.galpoes.length)throw new Error("arquivo inválido");
   G.granja=o.G?.granja||"";gastoId=o.gastoId||100;
@@ -575,6 +581,8 @@ function restore(o){
   GALPOES.forEach(g=>migraS(g.S));
   useGalpao(Math.min(o.cur||0,GALPOES.length-1));
 }
+const MOSTRA_POR=false;
+const quem=()=>{try{return (FB&&FB.auth&&FB.auth.currentUser&&FB.auth.currentUser.email)||""}catch(_){return ""}};
 const FASES_PADRAO=[{nome:"Pré-inicial",kgAve:0.2},{nome:"Inicial",kgAve:1},{nome:"Crescimento",kgAve:2.2},{nome:"Final",kgAve:1.5}];
 const fasesDe=Lx=>(Lx&&Array.isArray(Lx.fases)&&Lx.fases.length?Lx.fases:FASES_PADRAO);
 function calcFases(g){
@@ -586,6 +594,8 @@ function calcFases(g){
   if(S2.estoqueInicial>0)entra(S2.estoqueInicial,F[0].nome);
   (S2.dias||[]).forEach((d,k)=>{if(+d.carga>0)entra(+d.carga,d.fase||null);let c=(S2.consumos||[])[k]||0;
     while(c>0&&fila.length){const q=fila[0],t=Math.min(q.kg,c);rows[q.i].cons+=t;q.kg-=t;c-=t;if(q.kg<=0.001)fila.shift()}});
+  let extra=Math.max(0,(S2.estoque||0)-Math.max(0,estoqueAgoraDe(g).kg));
+  while(extra>0&&fila.length){const q=fila[0],t=Math.min(q.kg,extra);rows[q.i].cons+=t;q.kg-=t;extra-=t;if(q.kg<=0.001)fila.shift()}
   fila.forEach(q=>rows[q.i].silo+=q.kg);
   const atual=fila.length?rows[fila[0].i].nome:null;
   return {rows,atual,sugerida:rows[pick()].nome};
@@ -706,7 +716,7 @@ function renderHoje(){
   const d=ultimaPesagem(),p=S.pesos[d],pd=padraoAt(d),diff=(p/pd-1)*100;
   const txt=Math.abs(diff)<1.5?"no ritmo do padrão":(diff<0?`${nf(Math.abs(diff),1)}% abaixo do padrão`:`${nf(diff,1)}% acima do padrão`);
   $("verdict").innerHTML=d?`Lote <span class="gap">${txt}</span> ${L.linhagem} aos ${d} dias`:`${L.galpao} alojado, aguardando a primeira pesagem`;
-  $("verdict-sub").textContent=`Peso médio de ${nf(p)} g contra ${nf(pd)} g esperados. Hoje o lote está com ${S.idade} dias (${dateAt(S.idade)}).`;
+  $("verdict-sub").textContent=`Peso médio de ${nf(p)} g contra ${nf(pd)} g esperados. ${(()=>{const ih=idadeHoje(L),falta=ih-S.idade;return falta>0?`Hoje o lote está com ${ih} dias. Último lançamento: dia ${S.idade} (${dateAt(S.idade)}); faltam lançar ${falta} ${falta===1?"dia":"dias"}.`:`Hoje o lote está com ${S.idade} dias (${dateAt(S.idade)}).`})()}`;
   drawWeight();drawConsumo();renderConsumoNum();drawAgua();drawMort();drawSilo();renderAjustes();
   const c=conv(d);
   $("stats").innerHTML=[
@@ -773,6 +783,7 @@ function drawAgua(){
     const df=es?(rs/es-1)*100:0;
     const txt=Math.abs(df)<5?"dentro do esperado":df<0?`${nf(Math.abs(df),1)}% abaixo do esperado`:`${nf(df,1)}% acima do esperado`;
     $("aguaResumo").textContent=`Últimos ${ult.length} dias com leitura: ${nf(rs)} litros, ${txt} (${nf(es)} litros). Relação água : ração real de ${racao?nf(rs/racao,2):"–"} litros por kg (esperado ${nf(rel,1)}).`;
+    {const tot=(S.agua||[]).reduce((a,v)=>a+(v||0),0),de=S.aguaDe,ate=S.aguaAte;if(tot>0){const ini=de<0?"o alojamento":`o dia ${de+1}`;$("aguaResumo").textContent+=` No lote: ${nf(tot)} litros entre ${ini} e o dia ${ate+1} (${nf(tot/1000,2)} m³).`}}
   }else $("aguaResumo").textContent=S.hidroUlt!=null||S.hidroInicial!=null?"O consumo de água aparece a partir da próxima leitura do hidrômetro.":"Lance a leitura do hidrômetro na aba Lançar dia para acompanhar o consumo de água. A linha tracejada mostra o esperado.";
   const W=600,H=270,pl=58,pr=14,pt=26,pb=30,maxD=esp.length;
   const vmax=Math.max(...esp.map(p=>p.v),...real.map(p=>p.v),100);
@@ -868,7 +879,7 @@ function drawSilo(){
       ${fig(nf(pedir)+" kg","pedido sugerido para encher o silo")}
     </div>
     <div class="silo-cons">${c7.length?`<p>Consumo dos últimos 7 dias: média de ${nf(cm)} kg por dia, ${tend}</p>${bars}`:"<p>O consumo aparece aqui depois do primeiro lançamento do dia.</p>"}</div>
-    <p class="silo-foot">${leitTxt}${EA.kg<0?" Atenção: a conta ficou negativa; confira se alguma carga não foi lançada.":""} O pedido sugerido deixa ${nf(SILO.margem)} kg de folga.</p>`;
+    <p class="silo-foot">${(()=>{const f=idadeHoje(L)-S.idade;return f>0?`<b>Faltam lançar ${f} ${f===1?"dia":"dias"}.</b> O estoque desses dias é estimado; se chegou ração, lance as cargas para ele ficar certo. `:""})()}${leitTxt}${EA.kg<0?" Atenção: a conta ficou negativa; confira se alguma carga não foi lançada.":""} O pedido sugerido deixa ${nf(SILO.margem)} kg de folga.</p>`;
 }
 
 function renderRelatorio(){
@@ -917,7 +928,7 @@ function renderLancar(){
   const n=S.dias.length,idx=[...Array(n).keys()].reverse(),mostrar=verTodosDias?idx:idx.slice(0,7);
   $("histDias").innerHTML=n?mostrar.map(i=>{const d=S.dias[i],c=S.consumos[i];
     const partes=[`${d.mort} ${d.mort===1?"morta":"mortas"}`,d.elim?`${d.elim} ${d.elim===1?"eliminada":"eliminadas"}`:null,(S.ajustes||[]).some(a=>a.dia===i+1)?`estoque ajustado ${nf((S.estDia||[])[i]||0)} kg`:`silo estimado ${nf(Math.max(0,(S.estDia||[])[i]||0))} kg`,d.carga?`carga ${nf(d.carga)} kg${d.fase?` de ${esc(d.fase)}`:""}${d.ticket?` (ticket ${esc(d.ticket)})`:" (sem ticket)"}`:null,`consumo ${nf(c||0)} kg${S.consumoReal&&S.consumoReal[i]?"":" (estimado)"}`,d.hidro!=null?`hidrômetro ${fmtM3(d.hidro)} m³`:null,S.agua&&S.agua[i]!=null?`água ${nf(S.agua[i])} L`:null,d.peso?`peso ${nf(d.peso)} g`:null].filter(Boolean).join(", ");
-    return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span>${d.obs?`<span style="color:var(--ink);font-style:italic">${esc(d.obs)}</span>`:""}</div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
+    return `<div class="dia${i===editDia?" on":""}"><div><b>Dia ${i+1}, ${dateAt(i+1)}</b><span>${partes}</span>${d.obs?`<span style="color:var(--ink);font-style:italic">${esc(d.obs)}</span>`:""}${MOSTRA_POR&&d.por?`<span style="font-size:.8rem">lançado por ${esc(d.por)}</span>`:""}</div><div class="galp-btns"><button type="button" class="sbtn" data-editdia="${i}">Editar</button>${i===n-1?`<button type="button" class="sbtn danger" data-deldia="${i}" aria-label="Excluir o dia ${i+1}">Excluir</button>`:""}</div></div>`}).join(""):'<p class="sub">Os dias lançados aparecem aqui.</p>';
   $("verTodos").hidden=verTodosDias||n<=7;
 }
 const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
@@ -989,7 +1000,7 @@ function renderTickets(){
     dias.forEach((d,i)=>{if(+d.carga>0){rec+=+d.carga;const fase=d.fase||"";const tk=(d.ticket||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
       if(tk)tks.add(tk);else semN++;
       const dt=new Date(g.L.alojamento);dt.setDate(dt.getDate()+i+1);linhas.push({tk,fase,data:dt,g:g.L.galpao,dia:i+1,kg:+d.carga})}});
-    res.push({g:g.L.galpao,n:tks.size+semN,rec,cons:S2.racaoTotal||0,est:Math.max(0,S2.estoque||0)});tR+=rec;tC+=S2.racaoTotal||0;tE+=Math.max(0,S2.estoque||0);
+    const eH=Math.max(0,estoqueAgoraDe(g).kg),cH=(S2.racaoTotal||0)+Math.max(0,(S2.estoque||0)-eH);res.push({g:g.L.galpao,n:tks.size+semN,rec,cons:cH,est:eH});tR+=rec;tC+=cH;tE+=eH;
   });
   if(!linhas.length){$("ticketsRel").innerHTML='<p class="sub">Nenhuma carga de ração lançada ainda.</p>';window.__tk=null;return}
   const mapa=new Map(),grupos=[];
@@ -1002,13 +1013,13 @@ function renderTickets(){
   const dtxt=gr=>{const u=[...new Set(gr.datas.map(fd))];return u.join("<br>")};
   const ptxt=gr=>gr.partes.length>1?gr.partes.map(p=>`<span style="white-space:nowrap">${esc(p.g)}: ${nf(p.kg)}</span>`).join("<br>"):`<span style="white-space:nowrap">${esc(gr.partes[0].g)}</span>`;
   window.__tk={linhas,grupos,res,tot:{tN:nTk,tR,tC,tE}};
-  $("ticketsRel").innerHTML=renderFasesGranja()+`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Tickets</th><th>Ração recebida</th><th>Ração consumida</th><th>Estoque estimado</th></tr></thead><tbody>
+  $("ticketsRel").innerHTML=renderFasesGranja()+`<h3>Resumo por galpão</h3><div class="tbl"><table class="tk"><thead><tr><th>Galpão</th><th>Tickets</th><th>Ração recebida</th><th>Consumida até hoje</th><th>Estoque hoje (estimado)</th></tr></thead><tbody>
     ${res.map(r=>`<tr><td>${esc(r.g)}</td><td>${r.n}</td><td>${nf(r.rec)} kg</td><td>${nf(r.cons)} kg</td><td>${nf(r.est)} kg</td></tr>`).join("")}
     <tr style="font-weight:700"><td>Fazenda</td><td>${nTk}</td><td>${nf(tR)} kg</td><td>${nf(tC)} kg</td><td>${nf(tE)} kg</td></tr></tbody></table></div>
     <p class="sub" style="font-size:.85rem;margin-top:-8px">Na linha Fazenda, um ticket dividido entre galpões conta uma vez só.</p>
     <h3>Todos os tickets</h3><div class="tbl"><table class="tkl"><thead><tr><th>Ticket</th><th>Kg</th><th>Data</th><th>Galpão</th></tr></thead><tbody>
     ${grupos.map(gr=>`<tr><td>${gr.tk?esc(gr.tk):`– <small style="color:var(--muted)">(${gr.obs})</small>`}${gr.fase?`<br><small style="color:var(--muted)">${esc(gr.fase)}</small>`:""}</td><td>${nf(gr.kg)}</td><td>${dtxt(gr)}</td><td>${ptxt(gr)}</td></tr>`).join("")}
-    </tbody></table></div><p class="sub" style="font-size:.85rem">Ticket dividido entre galpões aparece uma vez, com o total e a parte de cada galpão. Ração consumida inclui os dias estimados depois do último ajuste do estoque.</p>`;
+    </tbody></table></div><p class="sub" style="font-size:.85rem">Ticket dividido entre galpões aparece uma vez, com o total e a parte de cada galpão. Consumo e estoque estimados até hoje, inclusive os dias ainda não lançados.</p>`;
 }
 $("tkPrint").addEventListener("click",()=>{const n=(G.granja||"granja").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");gerarPDF($("ticketsSec"),`tickets-${n}-${isoD(new Date())}.pdf`,`${G.granja||"Granja"}: tickets de ração`,["#tkCab"])});
 /* ===== Gerador de PDF próprio (sem bibliotecas externas) ===== */
@@ -1109,7 +1120,7 @@ $("tkCsv").addEventListener("click",()=>{
 
 function renderAjustes(){
   const a=(S.ajustes||[]).slice().sort((x,y)=>y.dia-x.dia||(y.ts||0)-(x.ts||0));
-  $("ajLista").innerHTML=a.length?`<div class="sub" style="margin:0 0 2px;font-weight:600">Ajustes deste lote</div>`+a.slice(0,8).map(x=>`<div class="ajrow"><div><b>${nf(x.kg)} kg</b><span>${dateAt(x.dia)}${x.ts?" às "+new Date(x.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}, dia ${x.dia} do lote${x.dia>S.idade?" (aguardando o lançamento do dia)":""}</span></div><button type="button" class="sbtn danger" data-ajdel="${x.dia}|${x.ts||0}">Excluir</button></div>`).join(""):"";
+  $("ajLista").innerHTML=a.length?`<div class="sub" style="margin:0 0 2px;font-weight:600">Ajustes deste lote</div>`+a.slice(0,8).map(x=>`<div class="ajrow"><div><b>${nf(x.kg)} kg</b><span>${dateAt(x.dia)}${x.ts?" às "+new Date(x.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}, dia ${x.dia} do lote${x.dia>S.idade?" (aguardando o lançamento do dia)":""}${MOSTRA_POR&&x.por?`, por ${esc(x.por)}`:""}</span></div><button type="button" class="sbtn danger" data-ajdel="${x.dia}|${x.ts||0}">Excluir</button></div>`).join(""):"";
 }
 $("ajAbrir").addEventListener("click",()=>{if(bloqueado){toast(msgBloq());return}$("ajForm").hidden=false;$("ajAbrir").hidden=true;$("ajData").value=isoD(new Date());$("ajData").max=isoD(new Date());$("ajData").min=isoD(new Date(L.alojamento.getTime()+864e5));$("ajKg").value="";$("ajKg").focus()});
 $("ajCancel").addEventListener("click",()=>{$("ajForm").hidden=true;$("ajAbrir").hidden=false});
@@ -1120,7 +1131,7 @@ $("ajForm").addEventListener("submit",e=>{
   if(dia<1){toast("A data precisa ser depois do dia do alojamento.");return}
   if(!Array.isArray(S.ajustes))S.ajustes=[];
   const antes=S.ajustes.slice(),hoje=isoD(new Date())===$("ajData").value;
-  S.ajustes=S.ajustes.filter(a=>a.dia!==dia);S.ajustes.push({dia,kg,ts:hoje?Date.now():dt.getTime()+18*36e5});
+  S.ajustes=S.ajustes.filter(a=>a.dia!==dia);S.ajustes.push({dia,kg,ts:hoje?Date.now():dt.getTime()+18*36e5,por:quem()});
   const t=recalcula(S,true);
   if(t.erro){S.ajustes=antes;toast("Esse estoque é maior do que o possível (último ajuste + cargas lançadas). Confira se falta lançar alguma carga.");return}
   recalcula(S);$("ajForm").hidden=true;$("ajAbrir").hidden=false;renderAll();
@@ -1165,7 +1176,7 @@ function renderConsumoNum(){
 }
 function renderFases(){
   const g=GALPOES[cur],r=calcFases(g),al=g.L.alojadas||1,inf=r.rows.some(x=>x.inf>0);
-  $("repFases").innerHTML=`<div class="tbl"><table class="tk"><thead><tr><th>Ração</th><th>Plano</th><th>Recebido</th><th>Consumido</th><th>No silo</th><th>Consumido por ave</th></tr></thead><tbody>
+  $("repFases").innerHTML=`<div class="tbl"><table class="tk"><thead><tr><th>Ração</th><th>Plano</th><th>Recebido</th><th>Consumido até hoje</th><th>No silo hoje</th><th>Consumido por ave</th></tr></thead><tbody>
   ${r.rows.map(x=>`<tr><td>${esc(x.nome)}</td><td>${nf(x.plan)} kg</td><td>${nf(x.rec)} kg</td><td>${nf(x.cons)} kg</td><td>${nf(x.silo)} kg</td><td>${nf(x.cons/al,3)} kg</td></tr>`).join("")}
   <tr style="font-weight:700"><td>Total</td><td>${nf(r.rows.reduce((a,x)=>a+x.plan,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.rec,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.cons,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.silo,0))} kg</td><td>${nf(r.rows.reduce((a,x)=>a+x.cons,0)/al,3)} kg</td></tr></tbody></table></div>
   <p class="sub" style="font-size:.85rem">Plano = kg por ave × ${nf(al)} aves alojadas. O consumo de cada ração segue a ordem de entrada no silo (a primeira que entra é a primeira que sai).${r.atual?` No silo agora: ${esc(r.atual)}.`:""}${inf?" Cargas lançadas sem a fase foram distribuídas pelo plano, na ordem das rações.":""}</p>`;
@@ -1313,7 +1324,7 @@ $("form").addEventListener("submit",e=>{
   }
   const hAnt=S.hidroUlt!=null?S.hidroUlt:S.hidroInicial;
   if(hidro!=null&&hAnt!=null&&hidro<hAnt){toast(`A leitura do hidrômetro (${fmtM3(hidro)}) ficou menor que a anterior (${fmtM3(hAnt)}). Confira os números.`);return}
-  S.dias.push({ticket:carga>0?tk:"",fase:carga>0?$("fFase").value:"",obs,mort:m,elim:el,carga,peso,hidro});
+  S.dias.push({por:quem(),ticket:carga>0?tk:"",fase:carga>0?$("fFase").value:"",obs,mort:m,elim:el,carga,peso,hidro});
   {const t=recalcula(S,true);if(t.erro){S.dias.pop();toast(t.tipo==="agua"?"A leitura do hidrômetro ficou menor que a anterior. Confira os números.":"A leitura do silo ficou maior do que o possível (estoque anterior + cargas). Confira se falta lançar alguma carga.");return}}
   recalcula(S);
   e.target.reset();$("fCarga").value=0;$("fElim").value=0;renderAll();
