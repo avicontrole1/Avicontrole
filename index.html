@@ -589,16 +589,23 @@ function recalcula(S,teste){
   return {ok:true};
 }
 function estoqueAgoraDe(g){
-  const S2=g.S,L2=g.L,k=S2.idade||0;
-  const viv=Math.max(1,(L2.alojadas||1)-(S2.dias||[]).reduce((a,d)=>a+(d.mort||0)+(d.elim||0),0));
-  const pend=(S2.ajustes||[]).filter(a=>a.dia>k&&a.ts).sort((a,b)=>b.ts-a.ts)[0];
-  const desconta=(kg,d0,h)=>{let rest=h/24,d=d0;while(rest>0&&d<d0+60){const f=Math.min(1,rest);kg-=consumoAveLin(L2.linhagem,d)*viv/1000*(S2.ritmo||1)*f;rest-=1;d++}return kg};
-  if(pend){const h=Math.max(0,(Date.now()-pend.ts)/3600000);return {kg:desconta(pend.kg,pend.dia,h),horas:h,pend}}
-  if(!k)return {kg:S2.estoque||0,horas:0};
-  const fim=new Date(L2.alojamento);fim.setDate(fim.getDate()+k+1);
-  const h=(Date.now()-fim.getTime())/3600000;
-  if(h<=0)return {kg:S2.estoque,horas:0};
-  return {kg:desconta(S2.estoque,k+1,h),horas:h};
+  /* Silo independente: parte do último ajuste real (ou do alojamento), soma as cargas lançadas depois
+     e desconta o consumo hora a hora pela linhagem × aves vivas × ritmo real do lote. */
+  const S2=g.S,L2=g.L,dias=S2.dias||[],n=dias.length;
+  const a0=new Date(L2.alojamento);a0.setHours(0,0,0,0);const A=a0.getTime(),DIA=864e5;
+  const quando=a=>a.ts||(A+a.dia*DIA);
+  const aj=(S2.ajustes||[]).slice().sort((x,y)=>quando(y)-quando(x))[0];
+  let kg,t0,dRef;
+  if(aj){kg=+aj.kg;t0=quando(aj);dRef=aj.dia}
+  else{kg=S2.estoqueInicial||0;t0=A;dRef=0}
+  for(let i=dRef;i<n;i++)kg+=+dias[i].carga||0;
+  const vivDia=d=>{let p=0;for(let i=0;i<Math.min(d-1,n);i++)p+=(dias[i].mort||0)+(dias[i].elim||0);return Math.max(1,(L2.alojadas||1)-p)};
+  const agora=Date.now(),r=S2.ritmo||1;let t=Math.max(t0,A),guarda=0;
+  while(t<agora&&guarda++<120){
+    const d=Math.floor((t-A)/DIA)+1,fimDia=A+d*DIA,ate=Math.min(fimDia,agora),f=(ate-t)/DIA;
+    kg-=consumoAveLin(L2.linhagem,d)*vivDia(d)/1000*r*f;t=ate;
+  }
+  return {kg,horas:Math.max(0,(agora-t0)/3600000),desde:t0,aj};
 }
 function estoqueAgora(){return estoqueAgoraDe(GALPOES[cur])}
 function idadeHoje(Lx){const h=new Date();h.setHours(0,0,0,0);const a=new Date(Lx.alojamento);a.setHours(0,0,0,0);return Math.round((h-a)/864e5)}
