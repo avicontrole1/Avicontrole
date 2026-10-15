@@ -134,6 +134,8 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .tbl{overflow-x:auto;margin-bottom:18px}
+.pe{min-width:0;font-size:.86rem}.pe th,.pe td{padding:8px 5px;white-space:nowrap}
+#ctForm .two,#ajForm .two,.abate-box .two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#ctForm input,#ajForm input,.abate-box input,.abate-box select{min-width:0;width:100%;box-sizing:border-box}
 .abate-box{display:grid;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
 .oc{border-left:4px solid var(--corn);background:var(--surface);border-radius:0 10px 10px 0;padding:10px 14px;margin:0 0 12px}
 .oc p{margin:0 0 6px}.oc ul{margin:0;padding-left:18px}.oc li{margin:3px 0;line-height:1.45}
@@ -146,6 +148,8 @@ input,select{font:500 1.1rem var(--sans);padding:10px 12px;border:1px solid var(
 .ajuste form{display:grid;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 .ajrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 .ajrow span{color:var(--muted);font-size:.82rem;display:block}
+#rcForm .two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#rcForm input{min-width:0;width:100%;box-sizing:border-box}
+.corte-box{border:2px solid var(--corn);border-radius:10px;padding:14px 16px;background:var(--surface);display:grid;gap:8px}.corte-box h3{margin:0;font-size:1.05rem}.corte-box .big{font-family:'Barlow Condensed',sans-serif;font-size:1.9rem;font-weight:700;line-height:1}.corte-box p{margin:0;font-size:.9rem;color:var(--muted)}.corte-box .cfg-actions{margin-top:2px}.corte-box.falta{border-color:var(--alert)}.corte-box.falta .big{color:var(--alert)}
 .tk th,.tk td{white-space:nowrap}
 .tkl{min-width:0;font-size:.86rem}.tkl th,.tkl td{padding:8px 6px}.tkl th:nth-child(3),.tkl td:nth-child(3),.tkl th:nth-child(4),.tkl td:nth-child(4){text-align:left}.tkl td{vertical-align:top;line-height:1.35}.tkl td:nth-child(2),.tkl td:nth-child(3){white-space:nowrap}
 .aval{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
@@ -245,6 +249,7 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
       <div class="legend"><span><i style="background:var(--corn)"></i>Peso real</span><span><i style="background:var(--zinc)"></i>Padrão da linhagem</span></div>
       <svg id="weightChart" viewBox="0 0 600 280" role="img" aria-label="Peso real comparado ao padrão da linhagem"></svg>
     </div>
+    <div id="pesoEst"></div>
     <h2>Consumo de ração por dia</h2>
     <p class="sub" id="consumoResumo"></p>
     <div class="chart">
@@ -260,7 +265,7 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
     </div>
     <div class="silo" id="siloPanel"></div>
     <div class="ajuste" id="ajusteBox">
-      <div class="cfg-actions"><button class="btn" type="button" id="ajAbrir">Ajustar estoque do silo</button></div>
+      <div class="cfg-actions"><button class="btn" type="button" id="ajAbrir">Ajustar estoque do silo</button><button class="btn ghost" type="button" id="ctAbrir">Calcular ração até o corte</button><button class="btn ghost" type="button" id="rcAbrir">Registrar corte da ração</button></div>
       <form id="ajForm" hidden>
         <p class="sub" style="margin:0">Informe quanto de ração tem no silo. O app calcula o consumo real desde o último ajuste e atualiza o consumo diário e o gráfico.</p>
         <div class="two">
@@ -269,6 +274,24 @@ td.neg{color:var(--alert)} td.pos{color:var(--ok)}
         </div>
         <div class="cfg-actions"><button class="btn" type="submit">Salvar ajuste</button><button class="btn ghost" type="button" id="ajCancel">Cancelar</button></div>
       </form>
+      <form id="ctForm" hidden>
+        <p class="sub" style="margin:0">Informe quando a ração será cortada (jejum antes do carregamento). O app calcula o consumo até esse horário pelo ritmo real do lote e compara com o estoque do silo.</p>
+        <div class="two">
+          <label>Data do corte<input id="ctData" type="date" required></label>
+          <label>Hora do corte<input id="ctHora" type="time" required value="06:00"></label>
+        </div>
+        <div class="cfg-actions"><button class="btn" type="submit">Calcular</button><button class="btn ghost" type="button" id="ctFechar">Fechar</button></div>
+        <div id="ctRes"></div>
+      </form>
+      <form id="rcForm" hidden>
+        <p class="sub" style="margin:0" id="rcTxt">Informe quando a ração foi cortada para o abate. A partir desse horário o galpão para de consumir e o app mostra quanto sobrou no silo.</p>
+        <div class="two">
+          <label>Data<input id="rcData" type="date" required></label>
+          <label>Hora<input id="rcHora" type="time" required value="19:00"></label>
+        </div>
+        <div class="cfg-actions"><button class="btn" type="submit" id="rcSalvar">Registrar corte</button><button class="btn ghost" type="button" id="rcCancel">Cancelar</button></div>
+      </form>
+      <div id="rcLista"></div>
       <div id="ajLista"></div>
     </div>
     <div class="grid" id="stats"></div>
@@ -576,7 +599,9 @@ function recalcula(S,teste){
   const gg=GALPOES.find(x=>x.S===S),Lx=gg?gg.L:L,n=S.dias.length;
   const mort=[],elim=[],w=[];let perd=0;
   for(let i=0;i<n;i++){const d=S.dias[i],pd=(d.mort||0)+(d.elim||0);mort.push(d.mort||0);elim.push(d.elim||0);
-    const viv=Math.max(1,(Lx.alojadas||1)-perd-pd/2);perd+=pd;w.push(Math.max(0.001,consumoAveLin(Lx.linhagem,i+1)*viv/1000))}
+    const viv=Math.max(1,(Lx.alojadas||1)-perd-pd/2);perd+=pd;
+    const a0=new Date(Lx.alojamento);a0.setHours(0,0,0,0);const t1=a0.getTime()+i*864e5,fed=1-jejumMs(S,t1,t1+864e5)/864e5;
+    w.push(Math.max(0.001,consumoAveLin(Lx.linhagem,i+1)*viv/1000*fed))}
   const ajM=new Map();(S.ajustes||[]).slice().sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(a=>{if(a.dia>=1&&a.dia<=n)ajM.set(a.dia-1,+a.kg)});
   const anc=[{i:-1,est:S.estoqueInicial||0}];[...ajM.keys()].sort((a,b)=>a-b).forEach(i=>anc.push({i,est:ajM.get(i)}));
   const cons=new Array(n).fill(0),real=new Array(n).fill(false);let ratio=null;
@@ -597,6 +622,10 @@ function recalcula(S,teste){
   Object.assign(S,{mort,elim,consumos:cons.map(v=>Math.round(v)),consumoReal:real,estDia:estD,ritmo:r,ultLeitura:ult,racaoTotal:tot,estoque:est,pesos,racaoAt,idade:n});
   return {ok:true};
 }
+/* Corte de ração (jejum para o abate): enquanto o corte está ativo o galpão não consome ração. */
+const cortesDe=S2=>(Array.isArray(S2.cortes)?S2.cortes:[]);
+const corteAtivo=S2=>{const c=cortesDe(S2).filter(x=>!x.volta).sort((a,b)=>b.ts-a.ts)[0];return c&&c.ts<=Date.now()?c:null};
+function jejumMs(S2,t1,t2){let ms=0;cortesDe(S2).forEach(c=>{const a=Math.max(t1,c.ts),b=Math.min(t2,c.volta||Infinity);if(b>a)ms+=b-a});return Math.min(ms,Math.max(0,t2-t1))}
 function estoqueAgoraDe(g){
   /* Silo independente: parte do último ajuste real (ou do alojamento), soma as cargas lançadas depois
      e desconta o consumo hora a hora pela linhagem × aves vivas × ritmo real do lote. */
@@ -612,7 +641,7 @@ function estoqueAgoraDe(g){
   const agora=Date.now(),r=S2.ritmo||1;let t=Math.max(t0,A),guarda=0;
   while(t<agora&&guarda++<120){
     const d=Math.floor((t-A)/DIA)+1,fimDia=A+d*DIA,ate=Math.min(fimDia,agora),f=(ate-t)/DIA;
-    kg-=consumoAveLin(L2.linhagem,d)*vivDia(d)/1000*r*f;t=ate;
+    kg-=consumoAveLin(L2.linhagem,d)*vivDia(d)/1000*r*Math.max(0,f-jejumMs(S2,t,ate)/DIA);t=ate;
   }
   return {kg,horas:Math.max(0,(agora-t0)/3600000),desde:t0,aj};
 }
@@ -772,7 +801,7 @@ function renderHoje(){
   const txt=Math.abs(diff)<1.5?"no ritmo do padrão":(diff<0?`${nf(Math.abs(diff),1)}% abaixo do padrão`:`${nf(diff,1)}% acima do padrão`);
   $("verdict").innerHTML=d?`Lote <span class="gap">${txt}</span> ${L.linhagem} aos ${d} dias`:`${L.galpao} alojado, aguardando a primeira pesagem`;
   $("verdict-sub").textContent=`Peso médio de ${nf(p)} g contra ${nf(pd)} g esperados. ${(()=>{const ih=idadeHoje(L),falta=ih-S.idade;return falta>0?`Hoje o lote está com ${ih} dias. Último lançamento: dia ${S.idade} (${dateAt(S.idade)}); faltam lançar ${falta} ${falta===1?"dia":"dias"}.`:`Hoje o lote está com ${S.idade} dias (${dateAt(S.idade)}).`})()}`;
-  drawWeight();drawConsumo();renderConsumoNum();drawAgua();drawMort();drawSilo();renderAjustes();
+  drawWeight();renderPesoEst();drawConsumo();renderConsumoNum();drawAgua();drawMort();drawSilo();renderAjustes();
   const c=conv(d);
   $("stats").innerHTML=[
     [nf(vivas(S.idade)),"aves vivas"],
@@ -902,8 +931,9 @@ function drawSilo(){
   const dataEm=n=>{if(EA.horas>0){const t=new Date();t.setDate(t.getDate()+n);return t.toLocaleDateString("pt-BR")}return dateAt(S.idade+n)};
   const ajs=(S.ajustes||[]).slice().sort((a,b)=>b.dia-a.dia||(b.ts||0)-(a.ts||0)),ua=ajs[0];
   const leitTxt=ua?`Último ajuste do estoque: ${nf(ua.kg)} kg em ${dateAt(ua.dia)}${ua.ts?" às "+new Date(ua.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}. Desde então o estoque é estimado pelo ritmo real do lote.`:"Ainda não há ajuste do estoque: o estoque é estimado pelas cargas e pelo consumo esperado da linhagem. Use o botão Ajustar estoque para conferir.";
-  const st=dias<=0?["alert","Pedir hoje"]:dias<2?["warn","Pedir em breve"]:["ok","Estoque tranquilo"];
-  const quando=!isFinite(dias)?"Sem consumo lançado ainda":dias<=0?"Estoque no ponto de pedido":dias<1?"Pedir ração hoje":dias<2?"Pedir ração amanhã":`Pedir ração em ${Math.floor(dias)} dias`;
+  const cA=corteAtivo(S);
+  const st=cA?(EA.kg>=50?["warn","Sobra no silo"]:["ok","Sem sobra"]):dias<=0?["alert","Pedir hoje"]:dias<2?["warn","Pedir em breve"]:["ok","Estoque tranquilo"];
+  const quando=cA?"Ração cortada para o abate":!isFinite(dias)?"Sem consumo lançado ainda":dias<=0?"Estoque no ponto de pedido":dias<1?"Pedir ração hoje":dias<2?"Pedir ração amanhã":`Pedir ração em ${Math.floor(dias)} dias`;
   const shape="M20 44 L65 14 L110 44 L110 160 L65 192 L20 160 Z";
   const svg=`<svg class="silo-svg" viewBox="0 0 130 222" role="img" aria-label="Silo com ${nf(lvl*100)}% da capacidade">
     <defs><clipPath id="siloClip"><path d="${shape}"/></clipPath></defs>
@@ -929,12 +959,12 @@ function drawSilo(){
     ${svg}
     <div class="silo-figs">
       ${fig(nf(EK)+" kg",`estimado agora (${hh}), de ${nf(SILO.cap)} kg`)}
-      ${isFinite(duracao)?fig(nf(duracao,1)+" dias",`de ração; acaba por volta de ${dataEm(Math.ceil(duracao))}`):fig("–","dias de ração; lance o primeiro dia para calcular")}
+      ${cA?fig(new Date(cA.ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(","," às"),"corte da ração; consumo encerrado")+fig(EA.kg>=50?nf(Math.round(EA.kg/10)*10)+" kg":"0 kg","sobra no silo no momento do corte"):`${isFinite(duracao)?fig(nf(duracao,1)+" dias",`de ração; acaba por volta de ${dataEm(Math.ceil(duracao))}`):fig("–","dias de ração; lance o primeiro dia para calcular")}
       ${fig(dias<=0?"Hoje":!isFinite(dias)?"–":dataEm(Math.floor(dias)),`pedir até essa data, ao chegar em ${nf(SILO.pedido)} kg`)}
-      ${fig(nf(pedir)+" kg","pedido sugerido para encher o silo")}
+      ${fig(nf(pedir)+" kg","pedido sugerido para encher o silo")}`}
     </div>
     <div class="silo-cons">${c7.length?`<p>Consumo dos últimos 7 dias: média de ${nf(cm)} kg por dia, ${tend}</p>${bars}`:"<p>O consumo aparece aqui depois do primeiro lançamento do dia.</p>"}</div>
-    <p class="silo-foot">${(()=>{const f=idadeHoje(L)-S.idade;return f>0?`<b>Faltam lançar ${f} ${f===1?"dia":"dias"}.</b> O estoque desses dias é estimado; se chegou ração, lance as cargas para ele ficar certo. `:""})()}${leitTxt}${EA.kg<0?" Atenção: a conta ficou negativa; confira se alguma carga não foi lançada.":""} O pedido sugerido deixa ${nf(SILO.margem)} kg de folga.</p>`;
+    <p class="silo-foot">${(()=>{const f=idadeHoje(L)-S.idade;return f>0?`<b>Faltam lançar ${f} ${f===1?"dia":"dias"}.</b> O estoque desses dias é estimado; se chegou ração, lance as cargas para ele ficar certo. `:""})()}${leitTxt}${EA.kg<0?" Atenção: a conta ficou negativa; confira se alguma carga não foi lançada.":""}${cA?"":` O pedido sugerido deixa ${nf(SILO.margem)} kg de folga.`}</p>`;
 }
 
 function renderRelatorio(){
@@ -1185,7 +1215,55 @@ $("tkCsv").addEventListener("click",()=>{
   a.download=`tickets-${nome}-${isoD(new Date())}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("Planilha gerada");
 });
 
-function renderAjustes(){
+function renderCortes(){
+  const box=$("rcLista");if(!box)return;const c=corteAtivo(S),fmt=t=>new Date(t).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(","," às");
+  const hist=cortesDe(S).filter(x=>x.volta).sort((a,b)=>b.ts-a.ts);
+  let h="";
+  if(c){const kg=estoqueAgoraDe(GALPOES[cur]).kg,hs=(Date.now()-c.ts)/36e5,r10=x=>Math.round(x/10)*10;
+    const tipo=kg>=50?"sobra":kg>-300?"zerou":"falta";
+    const big=tipo==="sobra"?`Sobra de ${nf(r10(kg))} kg`:tipo==="zerou"?"Sem sobra":`Faltou cerca de ${nf(r10(-kg))} kg`;
+    const exp=tipo==="sobra"?"Ração que ficou no silo no momento do corte. Confira no silo e, se for diferente, toque em Confirmar sobra para corrigir.":tipo==="zerou"?"O silo chegou ao corte praticamente vazio: a ração foi bem dimensionada.":"Pela conta, o silo teria esvaziado antes do horário do corte. Se ainda tinha ração, falta lançar alguma carga ou o ritmo do lote estava mais baixo; confirme a sobra real.";
+    h+=`<div class="corte-box ${tipo==="falta"?"falta":""}"><h3>Ração cortada em ${fmt(c.ts)}</h3><div class="big">${big}</div><p>Consumo encerrado há ${hs<48?nf(hs,0)+" horas":nf(hs/24,1)+" dias"}. ${exp}${MOSTRA_POR&&c.por?` Registrado por ${esc(c.por)}.`:""}</p>
+      <div class="cfg-actions"><button class="btn" type="button" data-rc="ajuste">Confirmar sobra</button><button class="sbtn" type="button" data-rc="volta">Voltar a ração</button><button class="sbtn danger" type="button" data-rc="del">Desfazer corte</button></div></div>`}
+  if(hist.length)h+=`<div class="sub" style="margin:0 0 2px;font-weight:600">Cortes anteriores</div>`+hist.slice(0,4).map(x=>`<div class="ajrow"><div><b>${fmt(x.ts)} até ${fmt(x.volta)}</b><span>${nf((x.volta-x.ts)/36e5,1)} horas sem ração (abate parcial)</span></div><button type="button" class="sbtn danger" data-rcdel="${x.ts}">Excluir</button></div>`).join("");
+  box.innerHTML=h;$("rcAbrir").hidden=!!c||!$("rcForm").hidden;
+}
+let rcModo="corte";
+function abreRc(modo){if(bloqueado){toast(msgBloq());return}rcModo=modo;const agora=new Date();
+  $("rcForm").hidden=false;$("rcAbrir").hidden=true;$("rcData").max=isoD(agora);$("rcData").min=isoD(new Date(L.alojamento.getTime()+864e5));
+  if(modo==="corte"){$("rcTxt").textContent="Informe quando a ração foi cortada para o abate. A partir desse horário o galpão para de consumir e o app mostra quanto sobrou no silo.";$("rcSalvar").textContent="Registrar corte";
+    if(L.corte&&L.corte.data&&new Date(L.corte.data+"T"+(L.corte.hora||"06:00")).getTime()<=Date.now()){$("rcData").value=L.corte.data;$("rcHora").value=L.corte.hora||"19:00"}
+    else{const ont=new Date();if(ont.getHours()<19)ont.setDate(ont.getDate()-1);$("rcData").value=isoD(ont);$("rcHora").value="19:00"}}
+  else{$("rcTxt").textContent="Abate parcial: informe quando a ração voltou para as aves que ficaram no galpão. O consumo volta a ser contado desse horário em diante.";$("rcSalvar").textContent="Salvar volta da ração";
+    $("rcData").value=isoD(agora);$("rcHora").value=String(Math.max(0,agora.getHours())).padStart(2,"0")+":00"}
+  $("rcForm").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+$("rcAbrir").addEventListener("click",()=>abreRc("corte"));
+$("rcCancel").addEventListener("click",()=>{$("rcForm").hidden=true;renderCortes()});
+$("rcForm").addEventListener("submit",e=>{
+  e.preventDefault();if(bloqueado){toast(msgBloq());return}
+  const t=new Date($("rcData").value+"T"+($("rcHora").value||"00:00")+":00").getTime();
+  if(!(t>0)){toast("Informe data e hora.");return}
+  if(t>Date.now()+6e4){toast("O horário não pode ser depois de agora. Para planejar um corte futuro use Calcular ração até o corte.");return}
+  if(!Array.isArray(S.cortes))S.cortes=[];
+  if(rcModo==="corte"){if(t<L.alojamento.getTime()){toast("A data precisa ser depois do alojamento.");return}
+    S.cortes.push({ts:t,por:quem()});recalcula(S);$("rcForm").hidden=true;renderAll();
+    const kg=estoqueAgoraDe(GALPOES[cur]).kg;toast(kg>=50?`Corte registrado. Sobra estimada de ${nf(Math.round(kg/10)*10)} kg no silo.`:kg>-300?"Corte registrado. O silo chegou ao corte sem sobra.":"Corte registrado. A conta indica falta de ração antes do corte; confira.")}
+  else{const c=corteAtivo(S);if(!c){$("rcForm").hidden=true;renderAll();return}
+    if(t<=c.ts){toast("A volta da ração precisa ser depois do corte.");return}
+    c.volta=t;recalcula(S);$("rcForm").hidden=true;renderAll();toast("Ração voltou. O consumo do galpão volta a ser contado.")}
+});
+$("rcLista").addEventListener("click",e=>{
+  const b=e.target.closest("[data-rc],[data-rcdel]");if(!b)return;if(bloqueado){toast(msgBloq());return}
+  const c=corteAtivo(S);
+  if(b.dataset.rc==="ajuste"){const kg=Math.max(0,Math.round(estoqueAgoraDe(GALPOES[cur]).kg/10)*10);$("ajAbrir").click();$("ajKg").value=kg;$("ajKg").select();return}
+  if(b.dataset.rc==="volta"){abreRc("volta");return}
+  if(!b.classList.contains("confirm")){b.classList.add("confirm");const tx=b.textContent;b.textContent="Confirmar";setTimeout(()=>{if(b.isConnected){b.classList.remove("confirm");b.textContent=tx}},4000);return}
+  if(b.dataset.rc==="del"&&c)S.cortes=S.cortes.filter(x=>x!==c);
+  if(b.dataset.rcdel)S.cortes=S.cortes.filter(x=>x.ts!==+b.dataset.rcdel||!x.volta);
+  recalcula(S);renderAll();toast("Corte desfeito. O consumo volta a ser contado.");
+});
+function renderAjustes(){renderCortes();
   const a=(S.ajustes||[]).slice().sort((x,y)=>y.dia-x.dia||(y.ts||0)-(x.ts||0));
   $("ajLista").innerHTML=a.length?`<div class="sub" style="margin:0 0 2px;font-weight:600">Ajustes deste lote</div>`+a.slice(0,8).map(x=>`<div class="ajrow"><div><b>${nf(x.kg)} kg</b><span>${dateAt(x.dia)}${x.ts?" às "+new Date(x.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}, dia ${x.dia} do lote${x.dia>S.idade?" (aguardando o lançamento do dia)":""}${MOSTRA_POR&&x.por?`, por ${esc(x.por)}`:""}</span></div><button type="button" class="sbtn danger" data-ajdel="${x.dia}|${x.ts||0}">Excluir</button></div>`).join(""):"";
 }
@@ -1356,6 +1434,58 @@ $("abateForm").addEventListener("submit",e=>{
   L.abatePrev=v;L.abateFonte=$("abFonte").value;renderAll();toast(`Abate salvo: ${n} dias de lote.`);
 });
 $("abLimpar").addEventListener("click",()=>{if(bloqueado){toast(msgBloq());return}delete L.abatePrev;delete L.abateFonte;renderAll();toast("Projeção voltou para 42 dias.")});
+function consumoPrevisto(g,t1,t2){
+  const S2=g.S,L2=g.L,dias=S2.dias||[],n=dias.length,a0=new Date(L2.alojamento);a0.setHours(0,0,0,0);const A=a0.getTime(),DIA=864e5;
+  const m7=dias.slice(-7),mortDia=m7.length?m7.reduce((x,d)=>x+(d.mort||0)+(d.elim||0),0)/m7.length:0;
+  const vivHoje=Math.max(1,(L2.alojadas||1)-dias.reduce((x,d)=>x+(d.mort||0)+(d.elim||0),0)),dHoje=Math.floor((Date.now()-A)/DIA)+1;
+  const r=S2.ritmo||1;let t=t1,kg=0,guarda=0;
+  while(t<t2&&guarda++<120){const d=Math.floor((t-A)/DIA)+1,fim=Math.min(A+d*DIA,t2),viv=Math.max(1,vivHoje-mortDia*Math.max(0,d-dHoje));
+    kg+=consumoAveLin(L2.linhagem,d)*viv/1000*r*Math.max(0,(fim-t-jejumMs(S2,t,fim))/DIA);t=fim}
+  return kg;
+}
+function calcCorte(){
+  const g=GALPOES[cur],v=$("ctData").value,h=$("ctHora").value||"06:00";if(!v)return;
+  const tC=new Date(v+"T"+h+":00").getTime(),agora=Date.now();
+  if(tC<=agora){$("ctRes").innerHTML='<p class="sub">O horário do corte precisa ser depois de agora.</p>';return}
+  const est=Math.max(0,estoqueAgora().kg),cons=consumoPrevisto(g,agora,tC),saldo=est-cons,horas=(tC-agora)/36e5,cap=SILO.cap||0;
+  const r100=x=>Math.ceil(x/100)*100;
+  const quando=new Date(tC).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  let concl;
+  if(saldo>=0)concl=`<div class="kpi"><span>Não precisa mandar ração</span><b>Sobra de ${nf(Math.floor(saldo/100)*100)} kg</b><small>no silo no momento do corte</small></div>`;
+  else{const falta=r100(-saldo);concl=`<div class="kpi"><span>Precisa mandar</span><b>${nf(falta)} kg</b><small>${falta>cap-est&&cap?`mais do que cabe no silo agora (cabem ${nf(Math.max(0,cap-est))} kg); dividir em duas cargas ou mandar mais perto do corte`:"para chegar até o corte sem sobra"}</small></div>`}
+  $("ctRes").innerHTML=`<div class="kpis">${concl}<div class="kpi"><span>Consumo até o corte</span><b>${nf(r100(cons))} kg</b><small>em ${nf(horas,0)} horas, até ${quando}</small></div><div class="kpi"><span>Estoque no silo agora</span><b>${nf(Math.round(est))} kg</b><small>estimado pelo último ajuste</small></div></div>
+  <p class="sub" style="font-size:.85rem;margin:6px 0 0">Cálculo pelo consumo da linhagem × aves vivas × ritmo real do lote${g.S.ritmo&&Math.abs(g.S.ritmo-1)>0.02?` (${nf(g.S.ritmo*100,0)}% do padrão)`:""}. Para mais precisão, ajuste o estoque do silo antes de calcular.</p>`;
+  g.L.corte={data:v,hora:h};save();
+}
+$("ctAbrir").addEventListener("click",()=>{
+  const g=GALPOES[cur];$("ctForm").hidden=false;$("ctAbrir").hidden=true;
+  if(g.L.corte&&g.L.corte.data){$("ctData").value=g.L.corte.data;$("ctHora").value=g.L.corte.hora||"06:00"}
+  else if(g.L.abatePrev){$("ctData").value=g.L.abatePrev;$("ctHora").value="06:00"}
+  else{const t=new Date(Date.now()+864e5);$("ctData").value=isoD(t)}
+  $("ctData").min=isoD(new Date());$("ctRes").innerHTML="";if($("ctData").value)calcCorte();
+});
+$("ctFechar").addEventListener("click",()=>{$("ctForm").hidden=true;$("ctAbrir").hidden=false});
+$("ctForm").addEventListener("submit",e=>{e.preventDefault();calcCorte()});
+const pesoEstimado=d=>{const u=ultimaPesagem();const p=S.pesos[u];if(!p)return padraoExt(d);return p*padraoExt(d)/padraoExt(u)};
+let peDiaAberto=false;
+function renderPesoEst(){
+  const box=$("pesoEst");if(!box)return;
+  const u=ultimaPesagem(),hoje=idadeHoje(L),ab=idadeAbate(),ini=Math.max(u+1,1),fim=Math.max(ab,hoje+7,u+7);
+  if(!S.pesos[u]){box.innerHTML="";return}
+  const ratio=(S.pesos[u]/padraoExt(u)-1)*100,ph=pesoEstimado(hoje);
+  const dataDe=d=>{const t=new Date(L.alojamento);t.setDate(t.getDate()+d);return t.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})};
+  const kpi=(t,v,c)=>`<div class="kpi"><span>${t}</span><b>${v}</b><small>${c}</small></div>`;
+  const prox=[7,14,21,28,35,42,49].find(x=>x>u&&x>=hoje)||null;
+  let linhas="";for(let d=ini;d<=fim;d++){const e=pesoEstimado(d),pd=padraoExt(d),g=d>0?e-pesoEstimado(d-1):0;
+    linhas+=`<tr${d===hoje?' style="font-weight:700;background:var(--surface)"':""}><td>${d}</td><td>${d===hoje?"hoje":d===ab?"abate":dataDe(d)}</td><td>${nf(e/1000,3)}</td><td>${nf(pd/1000,3)}</td><td>${nf(g)}</td></tr>`}
+  box.innerHTML=`<div class="cn"><h3 style="margin:4px 0 6px">Peso estimado</h3>
+  <div class="kpis">${kpi(`Hoje, dia ${hoje}`,nf(ph/1000,3)+" kg",`padrão ${nf(padraoExt(hoje)/1000,3)} kg`)}${kpi(`No abate, dia ${ab}`,nf(pesoEstimado(ab)/1000,3)+" kg",`padrão ${nf(padraoExt(ab)/1000,3)} kg`)}${kpi("Base da estimativa",`${nf(S.pesos[u])} g aos ${u} dias`,`${ratio>=0?"+":""}${nf(ratio,1)}% do padrão${prox?`; próxima pesagem: dia ${prox}`:""}`)}</div>
+  <button class="btn" type="button" id="peDiaBtn" style="width:100%;margin:8px 0 12px">${peDiaAberto?"Esconder peso estimado dia a dia":"Ver peso estimado dia a dia"}</button>
+  <div id="peDia"${peDiaAberto?"":" hidden"}><div class="tbl"><table class="pe"><thead><tr><th>Dia</th><th>Data</th><th>Estimado</th><th>Padrão</th><th>Ganho</th></tr></thead><tbody>${linhas}</tbody></table></div>
+  <p class="sub" style="font-size:.82rem">Peso em kg; ganho em gramas por dia. A estimativa segue a curva da ${esc(L.linhagem)} mantendo a diferença da última pesagem. A cada nova pesagem lançada, todas as previsões são corrigidas.</p></div></div>`;
+  $("peDiaBtn").onclick=()=>{peDiaAberto=!peDiaAberto;$("peDia").hidden=!peDiaAberto;$("peDiaBtn").textContent=peDiaAberto?"Esconder peso estimado dia a dia":"Ver peso estimado dia a dia"};
+  const fp=$("fPeso");if(fp){const dl=S.idade+1;fp.placeholder=`estimado: ${nf(pesoEstimado(dl))} g`}
+}
 function renderGalpaoSel(){
   $("galpaoSel").innerHTML=GALPOES.map((g,i)=>`<option value="${i}"${i===cur?" selected":""}>${g.L.galpao}</option>`).join("");
 }
@@ -1436,7 +1566,7 @@ $("encOpen").addEventListener("click",()=>{
   if(typeof bloqueado!=="undefined"&&bloqueado){toast(msgBloq());return}
   const g=GALPOES[cfgIdx];
   $("eData").value=isoDate(new Date());$("eAves").value=g.L.alojadas-g.S.mort.reduce((a,b)=>a+b,0)-(g.S.elim||[]).reduce((a,b)=>a+b,0);
-  $("ePeso").value="";$("eSobra").value=g.S.estoque;$("eValor").value="";
+  $("ePeso").value="";$("eSobra").value=corteAtivo(g.S)?Math.max(0,Math.round(estoqueAgoraDe(g).kg/10)*10):g.S.estoque;$("eValor").value="";
   $("encForm").hidden=false;$("encOpen").hidden=true;encCama();if(GALPOES[cfgIdx]&&GALPOES[cfgIdx].L.abatePrev&&!$("eData").value)$("eData").value=GALPOES[cfgIdx].L.abatePrev;$("ePeso").focus();
 });
 $("encCancel").addEventListener("click",resetEnc);
@@ -1468,7 +1598,7 @@ $("encForm").addEventListener("submit",e=>{
     mortT,elimT,sobra,kg,gmd:(peso*1000-(g.S.pesos[0]||44))/idade,aguaT:aguaT||null,relAgua:racaoAg?aguaT/racaoAg:null,gastosCat,pesagens,peso0:g.S.pesos[0]||null});
   const hUlt=g.S.hidroUlt!=null?g.S.hidroUlt:(g.S.hidroInicial!=null?g.S.hidroInicial:null);
   g.S={idade:0,pesos:{0:g.S.pesos[0]},racaoAt:{},racaoTotal:0,mort:[],consumos:[],estoque:0,gastos:[],dias:[],estoqueInicial:0,ajustes:[],hidroInicial:hUlt,agua:[],hidroUlt:hUlt};
-  delete g.L.abatePrev;delete g.L.abateFonte;
+  delete g.L.abatePrev;delete g.L.abateFonte;delete g.L.corte;
   g.L.alojamento=(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())})();
   useGalpao(cur);fillCfg(cfgIdx);renderAll();
   $("cfgEditing").scrollIntoView({behavior:"smooth",block:"start"});
